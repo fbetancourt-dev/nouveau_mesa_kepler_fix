@@ -1,0 +1,7 @@
+--- a/src/gallium/drivers/nouveau/nvc0/nvc0_screen.c
++++ b/src/gallium/drivers/nouveau/nvc0/nvc0_screen.c
+@@ -832,6 +832,8 @@ nvc0_screen_create(struct fd_device *dev)
+       pscreen->nir_options[i] = nv50_ir_nir_shader_compiler_options(screen->base.device->chipset, i);
++      pscreen->nir_options[i]->lower_robust_buffer_access = true;
++      pscreen->nir_options[i]->robust_buffer_access_behavior = true;
+    }
