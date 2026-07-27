@@ -1,0 +1,5 @@
+# .gitignore for nouveau_mesa_kepler_fix
+mesa/
+docs/*.log
+*.o
+*.so
