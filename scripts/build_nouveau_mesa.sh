@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# build_nouveau_mesa.sh - Build custom Mesa nouveau driver with Meson
-# Target: nvc0 (Kepler GT 750M)
+# build_nouveau_mesa.sh - Build custom Mesa nouveau DRI megadriver
+# Target: nouveau_dri.so (Kepler GT 750M)
 
 set -euo pipefail
 
@@ -13,17 +13,18 @@ if [ ! -d "${MESA_DIR}" ]; then
     exit 1
 fi
 
-echo "[INFO] Configuring Mesa build for nouveau..."
+echo "[INFO] Configuring Mesa build for nouveau DRI megadriver..."
 mkdir -p "${BUILD_DIR}"
 
 meson setup "${BUILD_DIR}" "${MESA_DIR}" \
     -Dgallium-drivers=nouveau \
     -Dvulkan-drivers= \
-    -Dplatforms=x11,wayland \
+    -Dglx=dri \
+    -Dplatforms=x11 \
     -Dbuildtype=debugoptimized \
     --reconfigure || true
 
-echo "[INFO] Compiling nouveau Gallium driver..."
-ninja -C "${BUILD_DIR}" src/gallium/drivers/nouveau/libnouveau.a || true
+echo "[INFO] Compiling nouveau DRI driver..."
+ninja -C "${BUILD_DIR}" src/gallium/targets/dri/libgallium_dri.so || ninja -C "${BUILD_DIR}"
 
 echo "[INFO] Build script finished execution."
