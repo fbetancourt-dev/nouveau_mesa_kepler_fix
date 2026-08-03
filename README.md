@@ -41,11 +41,10 @@ To build and install the patched Mesa DRI driver (`libdril_dri.so` / `nouveau_dr
 sudo ./scripts/build_nouveau_mesa.sh
 ```
 
-System Driver Locations:
-- DRI Megadriver: `/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so`
-- GNOME Shell / GBM / Wayland Compositor: `/usr/lib/x86_64-linux-gnu/libgallium-25.2.8-0ubuntu0.24.04.2.so`
+System Driver Location:
+`/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so`
 
-*(Original system drivers backed up with `.orig_bak` extension)*
+*(Original system driver backed up with `.orig_bak` extension)*
 
 ## Verification & Stress Testing Results
 

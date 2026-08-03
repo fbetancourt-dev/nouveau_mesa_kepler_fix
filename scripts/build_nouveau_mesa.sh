@@ -35,21 +35,10 @@ if [ -f "${DRI_TARGET}" ]; then
     if [ "$(id -u)" -eq 0 ]; then
         echo "[INFO] Installing driver to /usr/lib/x86_64-linux-gnu/dri/libdril_dri.so..."
         cp "${DRI_TARGET}" /usr/lib/x86_64-linux-gnu/dri/libdril_dri.so
-        
-        SYSTEM_GALLIUM="/usr/lib/x86_64-linux-gnu/libgallium-25.2.8-0ubuntu0.24.04.2.so"
-        if [ -f "${SYSTEM_GALLIUM}" ]; then
-            if [ ! -f "${SYSTEM_GALLIUM}.orig_bak" ]; then
-                echo "[INFO] Backing up original system libgallium..."
-                cp "${SYSTEM_GALLIUM}" "${SYSTEM_GALLIUM}.orig_bak"
-            fi
-            echo "[INFO] Installing patched driver to system libgallium (${SYSTEM_GALLIUM})..."
-            cp "${DRI_TARGET}" "${SYSTEM_GALLIUM}"
-        fi
-        echo "[SUCCESS] Patched Mesa driver installed to DRI and system GBM/GNOME Shell locations!"
+        echo "[SUCCESS] Patched Mesa DRI driver installed successfully!"
     else
-        echo "[NOTE] To install system-wide for DRI and GNOME Shell, run:"
+        echo "[NOTE] To install system-wide for DRI applications, run:"
         echo "sudo cp ${DRI_TARGET} /usr/lib/x86_64-linux-gnu/dri/libdril_dri.so"
-        echo "sudo cp ${DRI_TARGET} /usr/lib/x86_64-linux-gnu/libgallium-25.2.8-0ubuntu0.24.04.2.so"
     fi
 fi
 
