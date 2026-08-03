@@ -1,0 +1,12 @@
+diff --git a/src/gallium/drivers/nouveau/nouveau_buffer.c b/src/gallium/drivers/nouveau/nouveau_buffer.c
+index 8e4529b..8a91bf2 100644
+--- a/src/gallium/drivers/nouveau/nouveau_buffer.c
++++ b/src/gallium/drivers/nouveau/nouveau_buffer.c
+@@ -1023,6 +1023,7 @@ nouveau_scratch_next(struct nouveau_context *nv, unsigned size)
+    nv->scratch.offset = 0;
+    nv->scratch.end = nv->scratch.bo_size;
+ 
++   BO_WAIT(nv->screen, bo, NOUVEAU_BO_WR, nv->client);
+    ret = BO_MAP(nv->screen, bo, NOUVEAU_BO_WR, nv->client);
+    if (!ret)
+       nv->scratch.map = bo->map;

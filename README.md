@@ -17,10 +17,12 @@ nouveau 0000:01:00.0: fifo: SCHED_ERROR 0a [CTXSW_TIMEOUT]
 nouveau 0000:01:00.0: fifo:000000:0006:[gnome-shell[...]] errored - disabling channel
 ```
 
-## Implemented Fix
-We integrated NIR robust access lowering (`nir_lower_robust_access`) into the Mesa NVC0 Gallium driver (`src/gallium/drivers/nouveau/nvc0/nvc0_program.c`). This transformation clamps out-of-bounds array/buffer memory accesses in NIR instructions to zero before NV50 IR translation, preventing OOR VRAM reads at hardware execution time.
+## Implemented Fixes
+1. **NIR Robustness Lowering (`OOR_ADDR` Fix):** We integrated NIR robust access lowering (`nir_lower_robust_access`) into the Mesa NVC0 Gallium driver (`src/gallium/drivers/nouveau/nvc0/nvc0_program.c`). This transformation clamps out-of-bounds array/buffer memory accesses in NIR instructions to zero before NV50 IR translation, preventing OOR VRAM reads at hardware execution time.
+   - Patch File: [`patches/nvc0_nir_robustness.patch`](patches/nvc0_nir_robustness.patch)
 
-- Patch File: [`patches/nvc0_nir_robustness.patch`](patches/nvc0_nir_robustness.patch)
+2. **Scratch Buffer Fence Wait (`PTE` Fault Fix):** Added `BO_WAIT` synchronization during scratch buffer reuse in `src/gallium/drivers/nouveau/nouveau_buffer.c`. This prevents CPU writes into scratch vertex/index buffers while the GPU is still processing active DMA draw calls, eliminating `fifo: fault 00 [READ] reason 02 [PTE]` VRAM page faults during GTK4 / Nautilus UI rendering.
+   - Patch File: [`patches/nouveau_scratch_fence_wait.patch`](patches/nouveau_scratch_fence_wait.patch)
 
 ## Build & Installation
 To build and install the patched Mesa DRI driver (`libdril_dri.so` / `nouveau_dri.so`):
