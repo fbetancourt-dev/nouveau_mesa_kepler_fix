@@ -91,16 +91,16 @@ fi
 if [ "${PATCH_FAILED}" = true ]; then
     echo ""
     echo "========================================================================"
-    echo " ⚠️  ALERTA: EL CÓDIGO FUENTE DE MESA HA CAMBIADO Y EL PARCHE REQUIERE IA"
+    echo " ⚠️  WARNING: MESA SOURCE CODE HAS CHANGED - MANUAL / AI PATCH ADAPTATION REQUIRED"
     echo "========================================================================"
-    echo " El código fuente de Mesa se ha actualizado y las líneas de contexto han"
-    echo " cambiado, impidiendo la aplicación automática del parche tradicional."
+    echo " The upstream Mesa source code has been updated and context lines have"
+    echo " shifted, preventing standard automatic patch application."
     echo ""
-    echo " 🤖 Por favor, pide a Antigravity / Sam adaptarlo diciendo:"
-    echo "    'Sam, por favor adapta los parches de nouveau a la nueva versión de Mesa'"
+    echo " 🤖 Please ask your AI Coding Assistant / Antigravity to adapt the patches:"
+    echo "    'Please adapt the nouveau Kepler stability patches for the updated Mesa source code.'"
     echo "========================================================================"
     if command -v notify-send &>/dev/null; then
-        notify-send -u critical "Mesa Patch Conflict" "El código de Mesa cambió. Pide a Antigravity/Sam adaptar los parches."
+        notify-send -u critical "Mesa Patch Conflict" "Upstream Mesa source code changed. AI adaptation required."
     fi
     exit 1
 fi
