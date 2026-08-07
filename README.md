@@ -160,6 +160,37 @@ Inspect Intel Iris Pro 5200 messages and aperture queries:
 journalctl -b --no-pager -g "i915"
 ```
 
+### 6. Verify Active OpenGL Driver & Hardware Acceleration
+Check the active Mesa driver version, device rendering node, and VRAM memory stats:
+```bash
+glxinfo -B | grep -iE "vendor|device|version|accelerated|memory"
+```
+
+### 7. Inspect Specific Application Crash Logs
+Check if any application (e.g. `totem`, `gnome-shell`, `nautilus`) experienced a GUI crash or segfault:
+```bash
+journalctl -b _COMM=totem -p 3 --no-pager
+```
+
+### 8. Check Dynamic GPU Power Management Status (`nouveau.runpm`)
+Verify if the NVIDIA discrete GPU (dGPU) dynamically enters low-power suspend (`suspended` / D3cold) when idle:
+```bash
+cat /sys/class/drm/card1/device/power/runtime_status
+```
+
+### 9. Thermal Sensors & Fan Speed Audit
+Inspect real-time GPU/CPU temperatures and fan RPMs:
+```bash
+sensors | grep -iE "temp1|TC0P|Left|Right"
+```
+
+### 10. CPU Frequency & `BD_PROCHOT` Throttle Check
+Verify that the Intel CPU is running at full Turbo frequency and not throttled to 800 MHz:
+```bash
+lscpu | grep "MHz"
+```
+
+
 
 ---
 
