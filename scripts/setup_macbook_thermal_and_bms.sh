@@ -37,13 +37,15 @@ systemctl restart mbpfan.service
 echo " -> mbpfan service enabled and configured with 48C/53C/68C thresholds."
 
 # 3. Configure BD_PROCHOT (BMS 800MHz CPU Throttling Bypass) via MSR
-echo "[STEP 3/3] Setting up persistent BD_PROCHOT BMS 800MHz CPU throttle bypass..."
+# NOTE: BD_PROCHOT triggers on degraded BMS sensors or aftermarket replacement batteries
+# that report incorrect capacity/current metrics, locking the CPU to 800 MHz.
+echo "[STEP 3/3] Setting up persistent BD_PROCHOT BMS / Aftermarket battery 800MHz CPU throttle bypass..."
 modprobe msr || true
 
 # Helper script for systemd service
 cat << 'EOF' > /usr/local/bin/disable-bdprochot.sh
 #!/bin/bash
-# Disable BD_PROCHOT (bit 0 of MSR 0x1FC) to bypass BMS 800MHz CPU throttling
+# Disable BD_PROCHOT (bit 0 of MSR 0x1FC) to bypass BMS / Aftermarket battery 800MHz CPU throttling
 modprobe msr 2>/dev/null || true
 CURRENT_MSR=$(rdmsr -d 0x1fc 2>/dev/null || echo 0)
 if [ "$CURRENT_MSR" -ne 0 ]; then
@@ -58,7 +60,7 @@ chmod +x /usr/local/bin/disable-bdprochot.sh
 # Systemd service for persistent boot application
 cat << 'EOF' > "${SERVICE_FILE}"
 [Unit]
-Description=Disable BD_PROCHOT (BMS 800MHz CPU Throttle Bypass)
+Description=Disable BD_PROCHOT (BMS / Aftermarket Battery 800MHz CPU Throttle Bypass)
 After=syslog.target network.target
 
 [Service]
