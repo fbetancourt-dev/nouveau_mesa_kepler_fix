@@ -1,0 +1,21 @@
+diff --git a/src/gallium/drivers/nouveau/nouveau_buffer.c b/src/gallium/drivers/nouveau/nouveau_buffer.c
+index 8a91bf2..9b8c2d1 100644
+--- a/src/gallium/drivers/nouveau/nouveau_buffer.c
++++ b/src/gallium/drivers/nouveau/nouveau_buffer.c
+@@ -473,6 +473,9 @@ nouveau_buffer_transfer_map(struct pipe_context *pipe,
+     * slab bo that holds multiple resources. So in that case, don't
+     * wait on the whole slab and instead use the logic below to return a
+     * reasonable buffer for that case.
+     */
++   if (!buf->mm && (usage & PIPE_MAP_WRITE))
++      BO_WAIT(nv->screen, buf->bo, nouveau_screen_transfer_flags(usage), nv->client);
+    ret = BO_MAP(nv->screen, buf->bo,
+                 buf->mm ? 0 : nouveau_screen_transfer_flags(usage),
+                 nv->client);
+@@ -640,6 +643,8 @@ nouveau_resource_map_offset(struct nouveau_context *nv,
+    } else {
++      if (flags & NOUVEAU_BO_WR)
++         BO_WAIT(nv->screen, res->bo, flags, nv->client);
+       if (BO_MAP(nv->screen, res->bo, flags, nv->client))
+          return NULL;
+    }

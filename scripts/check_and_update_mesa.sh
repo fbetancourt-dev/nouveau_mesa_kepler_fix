@@ -109,12 +109,13 @@ if [ "${BUILD_DRIVER}" = true ]; then
         patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_scratch_fence_wait.patch"
     fi
 
-    if grep -q "nir_lower_robust_access" src/gallium/drivers/nouveau/nvc0/nvc0_program.c; then
-        echo "[INFO] Patch 1 (NIR robustness) present."
+    if grep -q "nouveau_ce_dma_fence_sync" src/gallium/drivers/nouveau/nouveau_buffer.c 2>/dev/null || grep -q "flags & NOUVEAU_BO_WR" src/gallium/drivers/nouveau/nouveau_buffer.c; then
+        echo "[INFO] Patch 3 (CE DMA fence sync) present."
     else
-        echo "[INFO] Applying Patch 1 (NIR robustness)..."
-        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nvc0_nir_robustness.patch"
+        echo "[INFO] Applying Patch 3 (CE DMA fence sync)..."
+        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_ce_dma_fence_sync.patch" || true
     fi
+
 
     echo "[INFO] Configuring build with meson..."
     meson setup "${BUILD_DIR}" "${MESA_SRC_DIR}" \

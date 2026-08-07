@@ -37,17 +37,17 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 
 This repository provides source-level Mesa patches, thermal control tuners, BMS CPU throttle bypass tools, and system GRUB tuners:
 
-### 1. `patches/nvc0_nir_robustness.patch` (NIR Robust Memory Access)
-Applies `nir_lower_robust_access` lowering in `src/gallium/drivers/nouveau/nvc0/nvc0_program.c`. Out-of-bounds shader reads and writes are safely clamped to 0 at the NIR intermediate representation stage, preventing `OOR_ADDR` shader warp traps.
+### 3. `patches/nouveau_ce_dma_fence_sync.patch` (Copy Engine DMA Fence Sync)
+Injects explicit `BO_WAIT` synchronization prior to buffer write/readwrite mapping in `src/gallium/drivers/nouveau/nouveau_buffer.c`. Ensures Copy Engine 2 (`CE2`) DMA texture transfers and GStreamer GL contexts wait for pending DMA write fences before writing to VRAM, eliminating Copy Engine `PTE` page faults (`engine 1b [CE2] reason 02 [PTE]`).
 
-### 2. `patches/nouveau_scratch_fence_wait.patch` (Scratch Buffer Fence Sync)
-Injects explicit `BO_WAIT` fence synchronization into `src/gallium/drivers/nouveau/nouveau_buffer.c` prior to CPU scratch buffer re-mapping. Ensures DMA draw calls finish before buffer reuse, eliminating `PTE` VRAM page faults.
+### 4. `tests/test_oob_buffer.c` (Embedded OpenGL C Stability Suite)
+Standalone C OpenGL test suite compiled with GLEW/X11 to perform deterministic out-of-bounds shader writes, vertex index fetching, and high-frequency unsynchronized buffer re-mapping cycles directly within the repository.
 
-### 3. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
+### 5. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
 * **BD_PROCHOT Bypass:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) clearing bit 0 of MSR `0x1FC`. Bypasses BMS sensor degradation and aftermarket battery capacity reporting mismatches, unlocking the CPU from 800 MHz back to full 3.70 GHz Turbo Boost.
 * **Ultra-Cool Fan Profile:** Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 
-### 4. `scripts/apply_system_fixes.sh` (Kernel & Udev Master Tuner)
+### 6. `scripts/apply_system_fixes.sh` (Kernel & Udev Master Tuner)
 Configures GRUB and Udev rules:
 * `nouveau.runpm=1`: Enables PCI runtime dynamic power management (dGPU powers off when idle).
 * `i915.enable_pkg_c8=0`: Disables Package C8 deep sleep state on the Intel Haswell iGPU, eliminating the LCPLL clock assertion warning.
@@ -55,14 +55,15 @@ Configures GRUB and Udev rules:
 
 ---
 
-## 🛠️ Automated Scripts Included
+## 🛠️ Automated Scripts & Test Suite Included
 
-| Script | Purpose |
+| Script / File | Purpose |
 | :--- | :--- |
 | `scripts/apply_system_fixes.sh` | **Master setup:** Applies GRUB parameters, Udev power rules, thermal profiles, BD_PROCHOT CPU fixes, and updates initramfs. |
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
-| `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, interactively prompts user, applies patches, and compiles native DRI drivers via `meson`/`ninja`. |
-| `scripts/run_kepler_stability_suite.sh` | Sequentially executes stability tests mapped directly to their corresponding patch, followed by a live kernel log diagnostic audit. |
+| `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, and 3, and compiles native DRI drivers via `meson`/`ninja`. |
+| `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
+| `tests/test_oob_buffer.c` | Standalone C OpenGL stress test suite for shader robustness and scratch buffer re-mapping. |
 | `scripts/manage_drivers.sh` | Provides dual-driver switching, health checks, and boot protection. |
 
 ---
@@ -78,16 +79,17 @@ All tests executed live on **NVIDIA GeForce GT 750M (NVE7 / GK107M)** under **Ub
 | :--- | :--- | :--- | :--- | :--- |
 | **TEST 1A** | Compute Shader SSBO OOB Write | 25,600 threads writing to `data[idx + 50000]` on 64B SSBO | Safe clamp to 0 | **PASS** ✅ |
 | **TEST 1B** | Vertex Index OOB Fetching | Fetching index 65,500 on 3-vertex VBO | Safe vertex fetch | **PASS** ✅ |
-| **TEST 1C** | Complex Shader Refraction | `glmark2` Bump & Refraction shader pipeline | 112 FPS / 30 FPS | **PASS** ✅ |
+| **TEST 1C** | Complex Shader Refraction | `glmark2` Bump & Refraction shader pipeline | 119 FPS / 31 FPS | **PASS** ✅ |
 
-### 🔹 Section 2: Patch 2 (`PTE` Page Fault & Scratch Fence Wait Protection)
-* **Corresponding Patch:** `patches/nouveau_scratch_fence_wait.patch`
+### 🔹 Section 2: Patch 2 & 3 (`PTE` Page Fault & Copy Engine Fence Protection)
+* **Corresponding Patches:** `patches/nouveau_scratch_fence_wait.patch` & `patches/nouveau_ce_dma_fence_sync.patch`
 
 | Test ID | Test Name | Workload / Stress | Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **TEST 2A** | Rapid Scratch Buffer Re-mapping | 500 unsynchronized `glMapBufferRange` cycles during draw | Zero memory corruption | **PASS** ✅ |
-| **TEST 2B** | Geometry & Terrain Stream | High-volume VBO stream (`[buffer]` + `[terrain]`) | 97 FPS / 19 FPS | **PASS** ✅ |
-| **TEST 2C** | Desktop Surface Compositing | GTK4 / Wayland compositor surface blur pass | 47 FPS | **PASS** ✅ |
+| **TEST 2B** | Geometry & Terrain Stream | High-volume VBO stream (`[buffer]` + `[terrain]`) | 106 FPS / 21 FPS | **PASS** ✅ |
+| **TEST 2C** | Desktop Surface Compositing | GTK4 / Wayland compositor surface blur pass | 46 FPS | **PASS** ✅ |
+| **TEST 2D** | **GNOME Videos (Totem) Playback** | **H.264 video playback (`sample_music_long.mp4`) on Wayland session** | **Smooth playback, ZERO Copy Engine `CE2` page faults** | **PASS** ✅ |
 
 ### 🔹 Section 3: Dual-GPU Video Acceleration & Thermal Control
 | Test ID | Test Name | Driver / Subsystem | Result | Status |
@@ -99,7 +101,7 @@ All tests executed live on **NVIDIA GeForce GT 750M (NVE7 / GK107M)** under **Ub
 ### 🔹 Section 4: Kernel Log Diagnostic Audit (`journalctl -k`)
 ```text
 === LIVE KERNEL JOURNAL DIAGNOSTIC AUDIT ===
-CLEAN: 0 Nouveau GPU traps (OOR_ADDR) or PTE page faults detected in kernel logs!
+CLEAN: ZERO Nouveau GPU traps (OOR_ADDR) or PTE page faults detected in kernel logs!
 ```
 
 ---

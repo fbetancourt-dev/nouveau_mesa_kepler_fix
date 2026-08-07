@@ -7,8 +7,8 @@ set -euo pipefail
 
 REPO_DIR="/home/fbetancourt/Gemini/nouveau_mesa_kepler_fix"
 SCRIPTS_DIR="${REPO_DIR}/scripts"
-OOB_TEST_SRC="/tmp/test_oob_buffer.c"
-OOB_TEST_BIN="/tmp/test_oob_buffer"
+OOB_TEST_SRC="${REPO_DIR}/tests/test_oob_buffer.c"
+OOB_TEST_BIN="${REPO_DIR}/tests/test_oob_buffer"
 DRI_TARGET="/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so"
 
 echo "========================================================================"
