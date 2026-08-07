@@ -25,8 +25,8 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
    ```
    *Cause:* CPU thread race conditions during dynamic VBO scratch buffer re-mapping (`glMapBufferRange`) without proper DMA fence synchronization (`BO_WAIT`), causing invalid Page Table Entry (PTE) VRAM reads.
 
-3. **BMS Degradation & Aftermarket Battery 800MHz CPU Throttling (`BD_PROCHOT` Lock):**
-   *Cause:* Bi-Directional Processor Hot (`BD_PROCHOT`) triggers when the Apple Battery Management System (BMS), battery thermal sensor, or a third-party/aftermarket replacement battery incorrectly reports capacity, current, or voltage metrics. The SMC interprets these erroneous readings as a thermal emergency and trips the `BD_PROCHOT` signal, permanently locking the Intel CPU at `0.80 GHz` (800 MHz).
+3. **BMS Degradation & Aftermarket Battery Capacity Mismatch 800MHz CPU Throttling (`BD_PROCHOT` Lock):**
+   *Cause:* Bi-Directional Processor Hot (`BD_PROCHOT`) triggers when the Apple Battery Management System (BMS), battery thermal sensor, or a third-party/aftermarket replacement battery reports metrics that mismatch original factory specifications (for instance, an aftermarket battery reporting higher capacity or non-standard charge profiles than the MacBook Pro SMC expects). The SMC misinterprets these capacity/voltage mismatches as a critical thermal or power fault and trips the `BD_PROCHOT` signal, permanently throttling the Intel CPU at `0.80 GHz` (800 MHz).
 
 4. **High Thermal Latency & `i915` Haswell LCPLL Warnings:**
    *Cause:* Default fan control profiles wait until CPU/GPU hit >85°C to spin up. Furthermore, the `i915` iGPU driver attempts Package C8 deep sleep display clock shutdown (`hsw_enable_pc8`), conflicting with Apple GMUX and spewing kernel warnings.
@@ -44,7 +44,7 @@ Applies `nir_lower_robust_access` lowering in `src/gallium/drivers/nouveau/nvc0/
 Injects explicit `BO_WAIT` fence synchronization into `src/gallium/drivers/nouveau/nouveau_buffer.c` prior to CPU scratch buffer re-mapping. Ensures DMA draw calls finish before buffer reuse, eliminating `PTE` VRAM page faults.
 
 ### 3. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
-* **BD_PROCHOT Bypass:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) clearing bit 0 of MSR `0x1FC`. Bypasses BMS sensor degradation and aftermarket battery reporting errors, unlocking the CPU from 800 MHz back to full 3.70 GHz Turbo Boost.
+* **BD_PROCHOT Bypass:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) clearing bit 0 of MSR `0x1FC`. Bypasses BMS sensor degradation and aftermarket battery capacity reporting mismatches, unlocking the CPU from 800 MHz back to full 3.70 GHz Turbo Boost.
 * **Ultra-Cool Fan Profile:** Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 
 ### 4. `scripts/apply_system_fixes.sh` (Kernel & Udev Master Tuner)
