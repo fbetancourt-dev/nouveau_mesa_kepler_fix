@@ -63,8 +63,10 @@ Configures GRUB and Udev rules:
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
 | `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, and 3, and compiles native DRI drivers via `meson`/`ninja`. |
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
+| `scripts/audit_system_health.py` | **Automated Health & Audit CLI:** Runs all 9 GPU, kernel, thermal, power PM, and CPU checks and prints a formatted ASCII table. |
 | `tests/test_oob_buffer.c` | Standalone C OpenGL stress test suite for shader robustness and scratch buffer re-mapping. |
 | `scripts/manage_drivers.sh` | Provides dual-driver switching, health checks, and boot protection. |
+
 
 ---
 
