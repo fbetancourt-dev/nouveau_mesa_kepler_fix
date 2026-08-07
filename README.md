@@ -172,23 +172,38 @@ Check if any application (e.g. `totem`, `gnome-shell`, `nautilus`) experienced a
 journalctl -b _COMM=totem -p 3 --no-pager
 ```
 
-### 8. Check Dynamic GPU Power Management Status (`nouveau.runpm`)
-Verify if the NVIDIA discrete GPU (dGPU) dynamically enters low-power suspend (`suspended` / D3cold) when idle:
+### 8. Check NVIDIA dGPU Dynamic Power Management (PCI Runtime PM / Auto-Sleep D3cold)
+Check if PCI Runtime Dynamic Power Management is enabled (`auto`) and inspect real-time power state (`suspended` when idle / powered off at 0W, `active` when rendering):
 ```bash
-cat /sys/class/drm/card1/device/power/runtime_status
+# Check if power management control is set to 'auto' (enabled)
+cat /sys/bus/pci/devices/0000:01:00.0/power/control
+
+# Check real-time dGPU status ('suspended' = D3cold 0W idle / 'active' = awake)
+cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status
 ```
 
-### 9. Thermal Sensors & Fan Speed Audit
+### 9. Check Intel iGPU (i915) Power Management & Display State
+Inspect Intel Haswell iGPU PCI power control mode and kernel boot command line parameters:
+```bash
+# Check Intel iGPU power control mode ('on' = active display server controller)
+cat /sys/bus/pci/devices/0000:00:02.0/power/control
+
+# Verify kernel cmdline parameters for NVIDIA runpm=1 and Intel Package C8 disable (i915.enable_pkg_c8=0)
+cat /proc/cmdline | grep -iE "nouveau.runpm|i915.enable_pkg_c8"
+```
+
+### 10. Thermal Sensors & Fan Speed Audit
 Inspect real-time GPU/CPU temperatures and fan RPMs:
 ```bash
 sensors | grep -iE "temp1|TC0P|Left|Right"
 ```
 
-### 10. CPU Frequency & `BD_PROCHOT` Throttle Check
+### 11. CPU Frequency & `BD_PROCHOT` Throttle Check
 Verify that the Intel CPU is running at full Turbo frequency and not throttled to 800 MHz:
 ```bash
 lscpu | grep "MHz"
 ```
+
 
 
 
