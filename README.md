@@ -125,6 +125,44 @@ sudo ./scripts/apply_system_fixes.sh
 
 ---
 
+## 🔍 Diagnostics & Journal Log Auditing
+
+To check GPU stability, monitor kernel events, and verify if any Nouveau or Intel GPU faults have occurred on your system, use the following `journalctl` commands:
+
+### 1. Audit Live Kernel GPU Faults (Current Boot)
+Filter the kernel buffer for `Nouveau` GPU traps (`OOR_ADDR`), Page Table Entry faults (`PTE`), or channel errors:
+```bash
+journalctl -k -b --no-pager | grep -iE "nouveau.*(fault|PTE|OOR_ADDR|trap|errored|killed)"
+```
+*Expected Clean Result:* Empty output (0 lines returned).
+
+### 2. Monitor GPU & Kernel Events in Real-Time
+Stream live kernel notifications during heavy workloads, video playback, or web browsing:
+```bash
+journalctl -k -f | grep -iE "nouveau|i915|drm|GPU"
+```
+
+### 3. Inspect System-Wide Error Logs
+View all critical system and driver error messages logged during the current boot:
+```bash
+journalctl -p 3 -b --no-pager
+```
+
+### 4. Check Nouveau FIFO & Channel Reset Events
+Inspect if any GPU hardware engine (e.g. `GR` 3D engine, `CE2` Copy Engine) has tripped a FIFO fault:
+```bash
+journalctl -k -b | grep -iE "nouveau.*fifo"
+```
+
+### 5. Check Intel Haswell iGPU (i915) Status & Warnings
+Inspect Intel Iris Pro 5200 messages and aperture queries:
+```bash
+journalctl -b --no-pager -g "i915"
+```
+
+
+---
+
 ## 📜 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
