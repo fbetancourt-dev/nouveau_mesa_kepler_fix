@@ -136,6 +136,13 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
   3. **Active Frequency Scaling:** Verifies CPU cores dynamically scale between base and 3.50–3.70 GHz Turbo Boost.
   4. **AVX2 SIMD Math Precision Test:** Executes a 1500x1500 float64 matrix dot-product utilizing Haswell AVX2/FMA3 SIMD units, verifying zero bit corruption or calculation divergence.
 
+### 10. `cpu-governor-balanced.service` (Persistent Balanced CPU Scaling Governor & Turbo Boost Manager)
+* **Purpose:** Persistent systemd system service (`/etc/systemd/system/cpu-governor-balanced.service`) that configures the CPU scaling governor across all 8 logical threads on every boot.
+* **Configuration:**
+  1. **Scaling Governor:** Enforces `schedutil` (kernel CFS scheduler-driven balanced governor) across all CPU core sysfs nodes (`/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor`).
+  2. **Turbo Boost:** Enables Intel P-State Turbo Boost (`no_turbo=0`), unlocking instant 3.50–3.70 GHz burst performance on demand.
+* **Benefits:** Eliminates lag in desktop applications and IDEs while maintaining dynamic thermal scaling (55°C–65°C idle, 75°C–85°C active load).
+
 ---
 
 ## 🛠️ Automated Scripts & Test Suite Included
@@ -146,6 +153,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 | `scripts/test_nouveau_power_disable.sh` | **Assertion Test Suite:** Runs 8 automated checks verifying live sysfs, udev rules, modprobe, GRUB, ALSA power_save, and udevadm dry-runs for Nouveau PM disabling. |
 | `scripts/setup_gnome_tracker_throttling.sh` | **Tracker Throttler:** Enforces `Nice=19`, `CPUQuota=25%`, `IOSchedulingClass=idle`, and ignores developer build directories (`node_modules`, `build`, `.venv`). |
 | `scripts/audit_cpu_silicon_health.py` | **Silicon Health Audit:** Verifies MCE hardware logs, MSR `0x19C` thermal flags, and executes AVX2 SIMD math precision tests. |
+| `cpu-governor-balanced.service` | **Persistent CPU Governor:** Enforces `schedutil` balanced governor and enables Turbo Boost 3.7GHz across all cores on boot. |
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
 | `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, 3, and 4, and compiles native DRI drivers via `meson`/`ninja`. |
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
