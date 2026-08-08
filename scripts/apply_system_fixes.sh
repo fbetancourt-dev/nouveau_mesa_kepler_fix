@@ -45,8 +45,8 @@ echo "options nouveau runpm=0" > /etc/modprobe.d/nouveau.conf
 echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management (Always ON)..."
 cat << 'EOF' > "${UDEV_RULE_FILE}"
 # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON)
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTRS{power/control}="on"
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTRS{power/control}="on"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
 EOF
 rm -f "${UDEV_RULE_FILE}.disabled"
 echo " -> Udev rule written to ${UDEV_RULE_FILE}"

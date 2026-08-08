@@ -43,10 +43,10 @@ else
 fi
 
 # TEST 3: Udev Rules Configuration
-if grep -q 'ATTRS{power/control}="on"' /etc/udev/rules.d/80-nvidia-pm.rules 2>/dev/null; then
-    assert_test "TEST 3: Udev Rules Assertion" 0 "/etc/udev/rules.d/80-nvidia-pm.rules forces ATTRS{power/control}='on'"
+if grep -q 'ATTR{power/control}="on"' /etc/udev/rules.d/80-nvidia-pm.rules 2>/dev/null; then
+    assert_test "TEST 3: Udev Rules Assertion" 0 "/etc/udev/rules.d/80-nvidia-pm.rules forces ATTR{power/control}='on'"
 else
-    assert_test "TEST 3: Udev Rules Assertion" 1 "Udev rules file missing or does not contain ATTRS{power/control}='on'"
+    assert_test "TEST 3: Udev Rules Assertion" 1 "Udev rules file missing or does not contain ATTR{power/control}='on'"
 fi
 
 # TEST 4: Modprobe Nouveau Configuration
