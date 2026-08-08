@@ -70,6 +70,9 @@ DRI_PRIME=pci-0000_01_00_0 glmark2 -b buffer:duration=1.0 -b terrain:duration=1.
 echo "[TEST 2C] Desktop Surface Blur & UI Compositing Stress..."
 DRI_PRIME=pci-0000_01_00_0 glmark2 -b desktop:blur-radius=5:effect=blur:duration=1.0 | grep -E "GL_RENDERER|FPS" || true
 
+echo "[TEST 2D] Texture Buffer Object (TBO) Re-binding & Address Flush (Patch 4 Verification)..."
+DRI_PRIME=pci-0000_01_00_0 "${OOB_TEST_BIN}" | grep -A 1 "TEST 4" || true
+
 
 # ----------------------------------------------------------------------
 # SECTION 3: DUAL-GPU HARDWARE VIDEO DECODING VERIFICATION

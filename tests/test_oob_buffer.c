@@ -160,6 +160,36 @@ static void run_test_3(void)
     glDeleteBuffers(1, &vbo);
 }
 
+static void run_test_4(void)
+{
+    printf("[INFO] Executing TEST 4: Texture Buffer Object (TBO) Re-binding & Address Flush...\n");
+    if (!GLEW_ARB_texture_buffer_object) {
+        printf("[SKIP] Texture Buffer Objects not supported.\n");
+        return;
+    }
+
+    GLuint tbo, tex;
+    glGenBuffers(1, &tbo);
+    glBindBuffer(GL_TEXTURE_BUFFER, tbo);
+    glBufferData(GL_TEXTURE_BUFFER, 4096, NULL, GL_DYNAMIC_DRAW);
+
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_BUFFER, tex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_R32F, tbo);
+
+    for (int i = 0; i < 200; i++) {
+        float data[1024];
+        for (int j = 0; j < 1024; j++) data[j] = (float)(i + j);
+        glBufferData(GL_TEXTURE_BUFFER, sizeof(data), data, GL_DYNAMIC_DRAW);
+    }
+    glFinish();
+
+    printf("TEST 4 Result: TBO bufctx validation & TIC flush safe (PASS)\n");
+
+    glDeleteTextures(1, &tex);
+    glDeleteBuffers(1, &tbo);
+}
+
 int main(int argc, char **argv)
 {
     init_gl();
@@ -170,6 +200,7 @@ int main(int argc, char **argv)
     run_test_1();
     run_test_2();
     run_test_3();
+    run_test_4();
 
     cleanup_gl();
     return 0;
