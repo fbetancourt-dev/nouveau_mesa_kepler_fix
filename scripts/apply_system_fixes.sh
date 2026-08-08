@@ -60,10 +60,28 @@ udevadm control --reload-rules
 udevadm trigger --subsystem-match=pci
 
 # 3. Apply Thermal Controls & BMS 800MHz CPU Throttling Bypass (BD_PROCHOT)
-echo "[STEP 3/5] Applying Thermal Controls & BMS BD_PROCHOT CPU Throttle Bypass..."
+echo "[STEP 3/5] Applying Thermal Controls & Persistent Balanced CPU Governor Service..."
 if [ -f "${SCRIPT_DIR}/setup_macbook_thermal_and_bms.sh" ]; then
     bash "${SCRIPT_DIR}/setup_macbook_thermal_and_bms.sh"
 fi
+
+# Enable persistent balanced CPU governor service (schedutil + Turbo Boost 3.7GHz)
+cat << "EOF" > /etc/systemd/system/cpu-governor-balanced.service
+[Unit]
+Description=Set CPU Scaling Governor to Schedutil (Balanced) & Enable Turbo Boost
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo; for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo schedutil > \$g 2>/dev/null || true; done"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable cpu-governor-balanced.service 2>/dev/null || true
+systemctl start cpu-governor-balanced.service 2>/dev/null || true
 
 # 4. Update Chrome Render Node Override (Targeting stable PCI path)
 if [ -f "${CHROME_DESKTOP}" ]; then
