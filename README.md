@@ -68,10 +68,15 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Why the Fix Works:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) that clears bit 0 of MSR `0x1FC`, unlocking full CPU Turbo frequency (3.70 GHz). Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 * **Verification Test:** Verified by **TEST 3B** (`lscpu` clock check & `disable-bdprochot.service` status) and **TEST 3C** (`sensors` thermal audit).
 
-### 7. `scripts/apply_system_fixes.sh` (Kernel PCI Runtime Power & Intel Haswell i915 Clock Fix)
-* **Problem:** The dGPU (NVIDIA GT 750M) runs at full power consumption (~15W VRAM/GPU idle power) unless PCI runtime PM is enabled. Additionally, the Intel Haswell iGPU (`i915`) attempts Package C8 deep sleep display clock shutdown (`hsw_enable_pc8`), conflicting with Apple GMUX and spewing LCPLL clock assertion warnings in kernel logs.
-* **Why the Fix Works:** Applies kernel GRUB command-line tuners `nouveau.runpm=1` (enabling dynamic dGPU power management so the GT 750M enters D3cold 0W sleep when idle) and `i915.enable_pkg_c8=0` (disabling Haswell Package C8 deep sleep, stopping i915 clock warnings).
-* **Verification Test:** Verified by **AUDIT-05** (`cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status`) and **AUDIT-06** (`cat /proc/cmdline`).
+### 7. `scripts/apply_system_fixes.sh` (5-Layer Nouveau Runtime PM Disabling & PCIe Power Control Fix)
+* **Problem:** Enabling dynamic Nouveau Runtime Power Management (`nouveau.runpm=1` or udev `power/control="auto"`) on MacBook Pro Dual-GPU Kepler hardware causes GPU channel disconnects (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`). When `gnome-shell` crashes under Wayland, the entire user desktop session is abruptly terminated, logging out the user to the GDM screen.
+* **Why the Fix Works:** Implements a 5-layer complete power management lock:
+  1. **Udev Rules (`/etc/udev/rules.d/80-nvidia-pm.rules`):** Forces `ATTRS{power/control}="on"` for both GPU (`0x0fe9`) and Audio (`0x0e1b`).
+  2. **Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=0`.
+  3. **Kernel Parameters (`/etc/default/grub`):** Sets `nouveau.runpm=0` and `i915.enable_pkg_c8=0`.
+  4. **Live PCI Sysfs Override:** Writes `on` to `/sys/bus/pci/devices/0000:01:00.0/power/control` and `0000:01:00.1/power/control`.
+  5. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) to ensure modprobe settings apply during early boot.
+* **Verification Test:** Executed automatically via `scripts/test_nouveau_power_disable.sh`.
 
 ---
 
@@ -79,7 +84,8 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 
 | Script / File | Purpose |
 | :--- | :--- |
-| `scripts/apply_system_fixes.sh` | **Master setup:** Applies GRUB parameters, Udev power rules, thermal profiles, BD_PROCHOT CPU fixes, and updates initramfs. |
+| `scripts/apply_system_fixes.sh` | **Master setup:** Applies GRUB parameters, Udev power rules, modprobe configs, thermal profiles, BD_PROCHOT CPU fixes, and updates initramfs. |
+| `scripts/test_nouveau_power_disable.sh` | **Assertion Test Suite:** Runs 7 automated checks verifying live sysfs, udev rules, modprobe, GRUB, and udevadm dry-runs for Nouveau PM disabling. |
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
 | `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, 3, and 4, and compiles native DRI drivers via `meson`/`ninja`. |
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
