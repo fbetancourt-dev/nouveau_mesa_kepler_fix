@@ -85,11 +85,11 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 2. **The Override Mechanism:**
    `nouveau.runpm=0` in GRUB instructs the *nouveau driver* not to initiate internal power-down transitions. However, PCIe Runtime PM operates at the Linux *PCI core bus level*. When `udev` sets `power/control="auto"`, the Linux PCI core subsystem periodically suspends the PCIe link when idle. This cuts off VRAM access while `gnome-shell` is actively rendering, tripping a `PTE page fault` on channel 6 and crashing the desktop session.
 3. **The Permanent Udev Fix:**
-   By updating `/etc/udev/rules.d/99-nvidia-pm.rules` to force `ATTR{power/control}="on"` at late priority 99:
+   By updating `/etc/udev/rules.d/99-nvidia-pm.rules` to force `ATTR{power/control}="on"` for all PCI events (add, bind, change) at late priority 99:
    ```udev
-   # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON)
-   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
-   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
+   # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON for all PCI events)
+   SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
+   SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
    ```
    `udev` is mandated to write `"on"` to sysfs every time the NVIDIA dGPU (vendor `0x10de`, device `0x0fe9`) or HDMI Audio controller (`0x0e1b`) is enumerated, keeping the PCIe power control state permanently active across reboots.
 

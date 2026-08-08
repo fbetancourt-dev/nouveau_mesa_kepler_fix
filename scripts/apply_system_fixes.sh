@@ -45,9 +45,9 @@ echo "options snd_hda_intel power_save=0 power_save_controller=N" > /etc/modprob
 # 2. Configure Udev PCI Power Management for NVIDIA GT 750M (Force Always ON)
 echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management (Always ON)..."
 cat << 'EOF' > "${UDEV_RULE_FILE}"
-# Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON)
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
-ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
+# Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON for all PCI events)
+SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
+SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
 EOF
 rm -f "${UDEV_RULE_FILE}.disabled"
 echo " -> Udev rule written to ${UDEV_RULE_FILE}"
