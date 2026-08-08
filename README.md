@@ -68,30 +68,36 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Why the Fix Works:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) that clears bit 0 of MSR `0x1FC`, unlocking full CPU Turbo frequency (3.70 GHz). Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 * **Verification Test:** Verified by **TEST 3B** (`lscpu` clock check & `disable-bdprochot.service` status) and **TEST 3C** (`sensors` thermal audit).
 
-### 7. `scripts/apply_system_fixes.sh` (5-Layer Nouveau Runtime PM Disabling & PCIe Power Control Fix)
-* **Problem:** Enabling dynamic Nouveau Runtime Power Management (`nouveau.runpm=1` or udev `power/control="auto"`) on MacBook Pro Dual-GPU Kepler hardware causes GPU channel disconnects (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`). When `gnome-shell` crashes under Wayland, the entire user desktop session is abruptly terminated, logging out the user to the GDM screen.
-* **Why the Fix Works:** Implements a 5-layer complete power management lock:
-  1. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Forces `ATTR{power/control}="on"` for both GPU (`0x0fe9`) and Audio (`0x0e1b`).
-  2. **Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=0`.
-  3. **Kernel Parameters (`/etc/default/grub`):** Sets `nouveau.runpm=0` and `i915.enable_pkg_c8=0`.
-  4. **Live PCI Sysfs Override:** Writes `on` to `/sys/bus/pci/devices/0000:01:00.0/power/control` and `0000:01:00.1/power/control`.
-  5. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) to ensure modprobe settings apply during early boot.
-* **Verification Test:** Executed automatically via `scripts/test_nouveau_power_disable.sh`.
+### 7. `scripts/apply_system_fixes.sh` (6-Layer Nouveau & ALSA Runtime PM Disabling & PCIe Power Control Fix)
+* **Problem:** Enabling dynamic Nouveau Runtime Power Management (`nouveau.runpm=1` or udev `power/control="auto"`) on MacBook Pro Dual-GPU Kepler hardware causes GPU channel disconnects (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`). When `gnome-shell` crashes under Wayland, the entire user desktop session is abruptly terminated, logging out the user to the GDM screen. Furthermore, default ALSA audio power management (`snd_hda_intel.power_save=1`) forces the NVIDIA HDMI Audio controller (`0000:01:00.1`) back into `auto` state upon stream idle.
+* **Why the Fix Works:** Implements a 6-layer complete power management lock:
+  1. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Priority 99 matching all PCI events (`add`, `bind`, `change`) to force `ATTR{power/control}="on"` for both dGPU (`0x0fe9`) and HDMI Audio (`0x0e1b`).
+  2. **ALSA Audio Modprobe (`/etc/modprobe.d/audio_disable_powersave.conf`):** Configures `options snd_hda_intel power_save=0 power_save_controller=N` to prevent the kernel ALSA driver from auto-suspending audio controllers.
+  3. **Nouveau Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=0`.
+  4. **Kernel Parameters (`/etc/default/grub`):** Sets `nouveau.runpm=0` and `i915.enable_pkg_c8=0`.
+  5. **Live PCI Sysfs Override:** Writes `on` to `/sys/bus/pci/devices/0000:01:00.0/power/control` and `0000:01:00.1/power/control`.
+  6. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) embedding both modprobe configs in early boot.
+* **Verification Test:** Executed automatically via `scripts/test_nouveau_power_disable.sh` (8/8 assertions passed).
 
-#### ⚡ Technical Deep-Dive: Why Udev `power/control="auto"` Bypassed GRUB `nouveau.runpm=0`
+#### ⚡ Technical Deep-Dive: Udev Event Lifecycles & Why `ACTION=="add"` Was Incomplete
 
-1. **Role of `systemd-udevd` in PCIe Power Management:**
-   When Linux boots or enumerates PCI hardware, the `udev` daemon matches device vendor/device IDs against rule files in `/etc/udev/rules.d/`. If a rule contains `ATTR{power/control}="auto"`, `udev` writes `"auto"` directly into the kernel sysfs node `/sys/bus/pci/devices/0000:01:00.0/power/control`.
-2. **The Override Mechanism:**
-   `nouveau.runpm=0` in GRUB instructs the *nouveau driver* not to initiate internal power-down transitions. However, PCIe Runtime PM operates at the Linux *PCI core bus level*. When `udev` sets `power/control="auto"`, the Linux PCI core subsystem periodically suspends the PCIe link when idle. This cuts off VRAM access while `gnome-shell` is actively rendering, tripping a `PTE page fault` on channel 6 and crashing the desktop session.
-3. **The Permanent Udev Fix:**
-   By updating `/etc/udev/rules.d/99-nvidia-pm.rules` to force `ATTR{power/control}="on"` for all PCI events (add, bind, change) at late priority 99:
+1. **The Udev Event Matching Limitation:**
+   Initial udev rules restricted matching with `ACTION=="add"`. While `add` matches initial device discovery during cold boot, Linux driver binding emits subsequent `ACTION=="bind"` and `ACTION=="change"` udev events when ALSA/PipeWire initializes the sound card. Restricting rules to `ACTION=="add"` allowed later `bind`/`change` events from `snd_hda_intel` or sound daemons to overwrite sysfs `power/control` back to `"auto"`.
+2. **The Universal Event Fix:**
+   Omitting `ACTION=="add"` and matching universally on `SUBSYSTEM=="pci"`:
    ```udev
    # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON for all PCI events)
    SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
    SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
    ```
-   `udev` is mandated to write `"on"` to sysfs every time the NVIDIA dGPU (vendor `0x10de`, device `0x0fe9`) or HDMI Audio controller (`0x0e1b`) is enumerated, keeping the PCIe power control state permanently active across reboots.
+   `udev` is mandated to write `"on"` to sysfs every time the NVIDIA dGPU (vendor `0x10de`, device `0x0fe9`) or HDMI Audio controller (`0x0e1b`) experiences any PCI event (`add`, `bind`, `change`), maintaining an unbreakable `on` state across reboots.
+
+3. **ALSA `snd_hda_intel` Kernel Module Parameter Lock:**
+   Ubuntu defaults to `snd_hda_intel.power_save=1`. When audio streams finish, the ALSA driver automatically reverts sound card sysfs attributes to `auto`. Adding `/etc/modprobe.d/audio_disable_powersave.conf`:
+   ```modprobe
+   options snd_hda_intel power_save=0 power_save_controller=N
+   ```
+   Completely disables ALSA-level power saving, preventing the driver from triggering PCIe autosuspend.
 
 #### 🔊 PipeWire & Audio Controller Power Analysis: Impact of Always-ON (`power/control="on"`)
 
@@ -113,7 +119,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 | Script / File | Purpose |
 | :--- | :--- |
 | `scripts/apply_system_fixes.sh` | **Master setup:** Applies GRUB parameters, Udev power rules, modprobe configs, thermal profiles, BD_PROCHOT CPU fixes, and updates initramfs. |
-| `scripts/test_nouveau_power_disable.sh` | **Assertion Test Suite:** Runs 7 automated checks verifying live sysfs, udev rules, modprobe, GRUB, and udevadm dry-runs for Nouveau PM disabling. |
+| `scripts/test_nouveau_power_disable.sh` | **Assertion Test Suite:** Runs 8 automated checks verifying live sysfs, udev rules, modprobe, GRUB, ALSA power_save, and udevadm dry-runs for Nouveau PM disabling. |
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
 | `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, 3, and 4, and compiles native DRI drivers via `meson`/`ninja`. |
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
