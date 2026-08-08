@@ -57,7 +57,10 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 
 ### 5. `tests/test_oob_buffer.c` (OpenGL C Stability Stress Test Suite & Driver Validation Fix)
 * **Problem:** Standard synthetic Linux benchmarks do not target driver-specific race conditions, such as out-of-bounds shader buffer indexing, unsynchronized VBO re-mapping, or dynamic texture buffer address flushes on Kepler GPUs.
-* **Why the Fix Works:** Provides a standalone OpenGL C test suite (`TEST 1` through `TEST 4`) compiled with GLEW/X11. Deterministically executes out-of-bounds SSBO writes, vertex index fetching, 500-cycle unsynchronized `glMapBufferRange` calls, and 200-cycle `glTexBuffer` re-allocations to stress-test and validate that Patches 1, 2, 3, and 4 maintain 100% GPU stability.
+* **Why the Fix Works:** Provides a standalone OpenGL C test suite (`TEST 1` through `TEST 4`) compiled with GLEW/X11. Deterministically executes targeted stress workloads to validate driver patch effectiveness:
+  * **TEST 1 & TEST 2 (Validates Patch 1):** Out-of-bounds SSBO compute shader writes (`data[idx + 50000]`) and OOB vertex index fetching (index 65500).
+  * **TEST 3 (Validates Patch 2):** 500-cycle high-frequency unsynchronized `glMapBufferRange` CPU/GPU VBO scratch buffer re-mappings.
+  * **TEST 4 (Validates Patch 4):** 200-cycle dynamic `glTexBuffer` VRAM re-allocations and TIC address flushes.
 * **Verification Test:** Executed automatically via `scripts/run_kepler_stability_suite.sh` or standalone `./tests/test_oob_buffer`.
 
 ### 6. `scripts/setup_macbook_thermal_and_bms.sh` (BMS CPU 800MHz Throttle & Thermal Control Fix)
