@@ -78,6 +78,14 @@ else
     assert_test "TEST 7: Udev Trigger Dry-Run Evaluation" 1 "Udev dry-run output did not resolve to 'on'"
 fi
 
+# TEST 8: ALSA HDA Intel Audio Power Save Disabled
+TEST8_VAL=$(cat /sys/module/snd_hda_intel/parameters/power_save 2>/dev/null || echo "0")
+if [ "$TEST8_VAL" = "0" ]; then
+    assert_test "TEST 8: ALSA Audio Power Save Assertion" 0 "snd_hda_intel.power_save is 0 (disabled)"
+else
+    assert_test "TEST 8: ALSA Audio Power Save Assertion" 1 "snd_hda_intel.power_save is '${TEST8_VAL}' (expected 0)"
+fi
+
 echo "========================================================================"
 echo " SUMMARY: Passed: ${PASSED} | Failed: ${FAILED}"
 echo "========================================================================"
