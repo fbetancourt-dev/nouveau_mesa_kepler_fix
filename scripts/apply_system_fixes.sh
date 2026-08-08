@@ -38,16 +38,17 @@ if grep -q "GRUB_CMDLINE_LINUX_DEFAULT" "${GRUB_FILE}"; then
 fi
 
 # 1b. Modprobe Configuration
-echo "[STEP 1b/5] Setting modprobe options nouveau runpm=0 & ALSA audio power_save=0..."
-echo "options nouveau runpm=0" > /etc/modprobe.d/nouveau.conf
-echo "options snd_hda_intel power_save=0 power_save_controller=N" > /etc/modprobe.d/audio_disable_powersave.conf
+echo "[STEP 1b/5] Setting modprobe options nouveau runpm=1 & ALSA audio power_save=1..."
+echo "options nouveau runpm=1" > /etc/modprobe.d/nouveau.conf
+echo "options snd_hda_intel power_save=1 power_save_controller=Y" > /etc/modprobe.d/audio_disable_powersave.conf
 
-# 2. Configure Udev PCI Power Management for NVIDIA GT 750M (Force Always ON)
-echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management (Always ON)..."
+# 2. Configure Udev PCI Power Management for NVIDIA GT 750M & Audio (Enable Auto-Suspend)
+echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management (Auto-Suspend)..."
 cat << 'EOF' > "${UDEV_RULE_FILE}"
-# Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON for all PCI events)
-SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
-SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
+# Enable PCI runtime power management (auto-suspend) for NVIDIA dGPU, Audio Controller & Intel iGPU
+SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="auto"
+SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="auto"
+SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x0d26", ATTR{power/control}="auto"
 EOF
 rm -f "${UDEV_RULE_FILE}.disabled"
 echo " -> Udev rule written to ${UDEV_RULE_FILE}"
