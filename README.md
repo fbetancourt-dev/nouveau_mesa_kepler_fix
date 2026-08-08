@@ -40,7 +40,10 @@ This repository provides source-level Mesa patches, thermal control tuners, BMS 
 ### 3. `patches/nouveau_ce_dma_fence_sync.patch` (Copy Engine DMA Fence Sync)
 Injects explicit `BO_WAIT` synchronization prior to buffer write/readwrite mapping in `src/gallium/drivers/nouveau/nouveau_buffer.c`. Ensures Copy Engine 2 (`CE2`) DMA texture transfers and GStreamer GL contexts wait for pending DMA write fences before writing to VRAM, eliminating Copy Engine `PTE` page faults (`engine 1b [CE2] reason 02 [PTE]`).
 
-### 4. `tests/test_oob_buffer.c` (Embedded OpenGL C Stability Suite)
+### 4. `patches/nouveau_tic_bufctx_refn.patch` (TIC Bufctx Reference Validation)
+Fixes `nvc0_validate_tic` and `nve4_validate_tic` in `src/gallium/drivers/nouveau/nvc0/nvc0_tex.c`. When texture buffer object (TBO) addresses are updated (`need_flush`), ensures `BCTX_REFN` is called to register the updated resource BO in `bufctx_3d`. Prevents GNOME Shell / Wayland compositor surface rendering from triggering unmapped VRAM Page Table Entry faults (`engine 00 [GR] client 07 [GPC0/T1_2] reason 02 [PTE] on channel 6 [gnome-shell]`).
+
+### 5. `tests/test_oob_buffer.c` (Embedded OpenGL C Stability Suite)
 Standalone C OpenGL test suite compiled with GLEW/X11 to perform deterministic out-of-bounds shader writes, vertex index fetching, and high-frequency unsynchronized buffer re-mapping cycles directly within the repository.
 
 ### 5. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
