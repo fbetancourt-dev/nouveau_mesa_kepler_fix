@@ -17,7 +17,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 GRUB_FILE="/etc/default/grub"
-UDEV_RULE_FILE="/etc/udev/rules.d/80-nvidia-pm.rules"
+UDEV_RULE_FILE="/etc/udev/rules.d/99-nvidia-pm.rules"
 CHROME_DESKTOP="/home/fbetancourt/.local/share/applications/google-chrome.desktop"
 
 # 1. Update GRUB Command Line Parameters

@@ -71,7 +71,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 ### 7. `scripts/apply_system_fixes.sh` (5-Layer Nouveau Runtime PM Disabling & PCIe Power Control Fix)
 * **Problem:** Enabling dynamic Nouveau Runtime Power Management (`nouveau.runpm=1` or udev `power/control="auto"`) on MacBook Pro Dual-GPU Kepler hardware causes GPU channel disconnects (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`). When `gnome-shell` crashes under Wayland, the entire user desktop session is abruptly terminated, logging out the user to the GDM screen.
 * **Why the Fix Works:** Implements a 5-layer complete power management lock:
-  1. **Udev Rules (`/etc/udev/rules.d/80-nvidia-pm.rules`):** Forces `ATTR{power/control}="on"` for both GPU (`0x0fe9`) and Audio (`0x0e1b`).
+  1. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Forces `ATTR{power/control}="on"` for both GPU (`0x0fe9`) and Audio (`0x0e1b`).
   2. **Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=0`.
   3. **Kernel Parameters (`/etc/default/grub`):** Sets `nouveau.runpm=0` and `i915.enable_pkg_c8=0`.
   4. **Live PCI Sysfs Override:** Writes `on` to `/sys/bus/pci/devices/0000:01:00.0/power/control` and `0000:01:00.1/power/control`.
@@ -85,7 +85,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 2. **The Override Mechanism:**
    `nouveau.runpm=0` in GRUB instructs the *nouveau driver* not to initiate internal power-down transitions. However, PCIe Runtime PM operates at the Linux *PCI core bus level*. When `udev` sets `power/control="auto"`, the Linux PCI core subsystem periodically suspends the PCIe link when idle. This cuts off VRAM access while `gnome-shell` is actively rendering, tripping a `PTE page fault` on channel 6 and crashing the desktop session.
 3. **The Permanent Udev Fix:**
-   By updating `/etc/udev/rules.d/80-nvidia-pm.rules` to force `ATTR{power/control}="on"`:
+   By updating `/etc/udev/rules.d/99-nvidia-pm.rules` to force `ATTR{power/control}="on"` at late priority 99:
    ```udev
    # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON)
    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
