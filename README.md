@@ -78,6 +78,21 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
   5. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) to ensure modprobe settings apply during early boot.
 * **Verification Test:** Executed automatically via `scripts/test_nouveau_power_disable.sh`.
 
+#### ⚡ Technical Deep-Dive: Why Udev `power/control="auto"` Bypassed GRUB `nouveau.runpm=0`
+
+1. **Role of `systemd-udevd` in PCIe Power Management:**
+   When Linux boots or enumerates PCI hardware, the `udev` daemon matches device vendor/device IDs against rule files in `/etc/udev/rules.d/`. If a rule contains `ATTRS{power/control}="auto"`, `udev` writes `"auto"` directly into the kernel sysfs node `/sys/bus/pci/devices/0000:01:00.0/power/control`.
+2. **The Override Mechanism:**
+   `nouveau.runpm=0` in GRUB instructs the *nouveau driver* not to initiate internal power-down transitions. However, PCIe Runtime PM operates at the Linux *PCI core bus level*. When `udev` sets `power/control="auto"`, the Linux PCI core subsystem periodically suspends the PCIe link when idle. This cuts off VRAM access while `gnome-shell` is actively rendering, tripping a `PTE page fault` on channel 6 and crashing the desktop session.
+3. **The Permanent Udev Fix:**
+   By updating `/etc/udev/rules.d/80-nvidia-pm.rules` to force `ATTRS{power/control}="on"`:
+   ```udev
+   # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON)
+   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTRS{power/control}="on"
+   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTRS{power/control}="on"
+   ```
+   `udev` is mandated to write `"on"` to sysfs every time the NVIDIA dGPU (vendor `0x10de`, device `0x0fe9`) or HDMI Audio controller (`0x0e1b`) is enumerated, keeping the PCIe power control state permanently active across reboots.
+
 ---
 
 ## 🛠️ Automated Scripts & Test Suite Included
