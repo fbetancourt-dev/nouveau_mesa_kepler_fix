@@ -35,13 +35,21 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 
 ## 💡 Solution Overview & Included Patches
 
-This repository provides source-level Mesa patches, thermal control tuners, BMS CPU throttle bypass tools, and system GRUB tuners:
+### 1. `patches/nvc0_nir_robustness.patch` (NIR Shader Robust Access & Warp Trap Protection)
+* **Problem:** Out-of-bounds array or SSBO indexing in shaders generated raw un-clamped memory load/store instructions in NIR. On Kepler GPUs (GK107M / NVE7), accessing unmapped shader memory trips a hardware execution trap (`OOR_ADDR` / `MULTIPLE_WARP_ERRORS`), causing shader execution warps to freeze and halting the dGPU.
+* **Why the Fix Works:** Injects `nir_lower_robust_access(info->bin.nir, NULL, NULL)` into `nvc0_program_translate` in `src/gallium/drivers/nouveau/nvc0/nvc0_program.c`. Forces the NIR compiler pass to inject runtime bounds-checking logic around buffer operations, clamping out-of-bounds reads/writes to 0 and preventing GPU warp traps.
 
-### 3. `patches/nouveau_ce_dma_fence_sync.patch` (Copy Engine DMA Fence Sync)
-Injects explicit `BO_WAIT` synchronization prior to buffer write/readwrite mapping in `src/gallium/drivers/nouveau/nouveau_buffer.c`. Ensures Copy Engine 2 (`CE2`) DMA texture transfers and GStreamer GL contexts wait for pending DMA write fences before writing to VRAM, eliminating Copy Engine `PTE` page faults (`engine 1b [CE2] reason 02 [PTE]`).
+### 2. `patches/nouveau_scratch_fence_wait.patch` (Scratch Buffer Fence Synchronization)
+* **Problem:** Dynamic CPU VBO scratch buffers (`nouveau_scratch_next`) re-allocate VRAM memory slots during heavy draw cycles. Calling `BO_MAP` without waiting for pending GPU write fences caused CPU/GPU race conditions, mapping VRAM buffers while the GPU was actively writing to them, leading to `PTE` page table faults.
+* **Why the Fix Works:** Injects an explicit `BO_WAIT(nv->screen, bo, NOUVEAU_BO_WR, nv->client)` in `src/gallium/drivers/nouveau/nouveau_buffer.c` prior to `BO_MAP`. Forces CPU threads to wait until GPU DMA writes complete before re-mapping scratch VRAM, eliminating thread races.
+
+### 3. `patches/nouveau_ce_dma_fence_sync.patch` (Copy Engine DMA Fence Synchronization)
+* **Problem:** Texture transfers using Copy Engine 2 (`CE2`) or `glMapBufferRange` with `PIPE_MAP_WRITE` mapped buffer resources without fence synchronization. When GStreamer, Totem, or Wayland compositors updated texture surfaces, `CE2` read un-synced VRAM pages, tripping Copy Engine `PTE` page faults (`engine 1b [CE2] reason 02 [PTE]`).
+* **Why the Fix Works:** Injects `BO_WAIT` before mapping write buffers in `nouveau_buffer_transfer_map` and `nouveau_resource_map_offset`. Guarantees Copy Engine DMA transfers wait for pending write operations before reading/writing VRAM, eliminating `CE2` page faults.
 
 ### 4. `patches/nouveau_tic_bufctx_refn.patch` (TIC Bufctx Reference Validation)
-Fixes `nvc0_validate_tic` and `nve4_validate_tic` in `src/gallium/drivers/nouveau/nvc0/nvc0_tex.c`. When texture buffer object (TBO) addresses are updated (`need_flush`), ensures `BCTX_REFN` is called to register the updated resource BO in `bufctx_3d`. Prevents GNOME Shell / Wayland compositor surface rendering from triggering unmapped VRAM Page Table Entry faults (`engine 00 [GR] client 07 [GPC0/T1_2] reason 02 [PTE] on channel 6 [gnome-shell]`).
+* **Problem:** When dynamic texture buffer objects (TBOs / `PIPE_BUFFER`) update their physical VRAM addresses via `nvc0_update_tic`, `need_flush` is set to `true`. Previously, if `dirty` was false, both `nvc0_validate_tic` and `nve4_validate_tic` in `src/gallium/drivers/nouveau/nvc0/nvc0_tex.c` skipped calling `BCTX_REFN(nvc0->bufctx_3d, 3D_TEX(s, i), res, RD)`. Omitting `BCTX_REFN` meant `res->bo` was not registered in `bufctx_3d`, so the Nouveau DRM kernel driver did not map the buffer's GPU virtual memory pages in the channel's MMU table. When GNOME Shell / Wayland compositors sampled the texture, the GPU 3D engine (`GPC0/T1_2` / `TEX: 80000041`) attempted to read from unmapped VRAM `0x130c1000`, causing a `reason 02 [PTE]` fault on channel 6 and crashing the GUI session.
+* **Why the Fix Works:** Changes the validation condition to `if (dirty || need_flush)`. Whenever a texture address is updated (`need_flush`), `BCTX_REFN` is guaranteed to be called, registering `res->bo` in `bufctx_3d`. The kernel DRM driver maps the pages into the GPU MMU before command submission, preventing unmapped VRAM page faults.
 
 ### 5. `tests/test_oob_buffer.c` (Embedded OpenGL C Stability Suite)
 Standalone C OpenGL test suite compiled with GLEW/X11 to perform deterministic out-of-bounds shader writes, vertex index fetching, and high-frequency unsynchronized buffer re-mapping cycles directly within the repository.
