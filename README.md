@@ -51,18 +51,20 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Problem:** When dynamic texture buffer objects (TBOs / `PIPE_BUFFER`) update their physical VRAM addresses via `nvc0_update_tic`, `need_flush` is set to `true`. Previously, if `dirty` was false, both `nvc0_validate_tic` and `nve4_validate_tic` in `src/gallium/drivers/nouveau/nvc0/nvc0_tex.c` skipped calling `BCTX_REFN(nvc0->bufctx_3d, 3D_TEX(s, i), res, RD)`. Omitting `BCTX_REFN` meant `res->bo` was not registered in `bufctx_3d`, so the Nouveau DRM kernel driver did not map the buffer's GPU virtual memory pages in the channel's MMU table. When GNOME Shell / Wayland compositors sampled the texture, the GPU 3D engine (`GPC0/T1_2` / `TEX: 80000041`) attempted to read from unmapped VRAM `0x130c1000`, causing a `reason 02 [PTE]` fault on channel 6 and crashing the GUI session.
 * **Why the Fix Works:** Changes the validation condition to `if (dirty || need_flush)`. Whenever a texture address is updated (`need_flush`), `BCTX_REFN` is guaranteed to be called, registering `res->bo` in `bufctx_3d`. The kernel DRM driver maps the pages into the GPU MMU before command submission, preventing unmapped VRAM page faults.
 
-### 5. `tests/test_oob_buffer.c` (Embedded OpenGL C Stability Suite)
-Standalone C OpenGL test suite compiled with GLEW/X11 to perform deterministic out-of-bounds shader writes, vertex index fetching, and high-frequency unsynchronized buffer re-mapping cycles directly within the repository.
+### 5. `tests/test_oob_buffer.c` (OpenGL C Stability Stress Test Suite & Driver Validation Fix)
+* **Problem:** Standard synthetic Linux benchmarks do not target driver-specific race conditions, such as out-of-bounds shader buffer indexing, unsynchronized VBO re-mapping, or dynamic texture buffer address flushes on Kepler GPUs.
+* **Why the Fix Works:** Provides a standalone OpenGL C test suite (`TEST 1` through `TEST 4`) compiled with GLEW/X11. Deterministically executes out-of-bounds SSBO writes, vertex index fetching, 500-cycle unsynchronized `glMapBufferRange` calls, and 200-cycle `glTexBuffer` re-allocations to stress-test and validate that Patches 1, 2, 3, and 4 maintain 100% GPU stability.
+* **Verification Test:** Executed automatically via `scripts/run_kepler_stability_suite.sh` or standalone `./tests/test_oob_buffer`.
 
-### 6. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
-* **BD_PROCHOT Bypass:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) clearing bit 0 of MSR `0x1FC`. Bypasses BMS sensor degradation and aftermarket battery capacity reporting mismatches, unlocking the CPU from 800 MHz back to full 3.70 GHz Turbo Boost.
-* **Ultra-Cool Fan Profile:** Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
+### 6. `scripts/setup_macbook_thermal_and_bms.sh` (BMS CPU 800MHz Throttle & Thermal Control Fix)
+* **Problem:** On dual-GPU MacBooks with degraded sensors or third-party/aftermarket replacement batteries, the Apple Battery Management System (BMS) / SMC reports telemetry mismatches, tripping the Bi-Directional Processor Hot (`BD_PROCHOT`) hardware signal and permanently throttling the Intel CPU at `0.80 GHz` (800 MHz). Furthermore, stock fan profiles wait until >85°C to spin up.
+* **Why the Fix Works:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) that clears bit 0 of MSR `0x1FC`, unlocking full CPU Turbo frequency (3.70 GHz). Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
+* **Verification Test:** Verified by **TEST 3B** (`lscpu` clock check & `disable-bdprochot.service` status) and **TEST 3C** (`sensors` thermal audit).
 
-### 7. `scripts/apply_system_fixes.sh` (Kernel & Udev Master Tuner)
-Configures GRUB and Udev rules:
-* `nouveau.runpm=1`: Enables PCI runtime dynamic power management (dGPU powers off when idle).
-* `i915.enable_pkg_c8=0`: Disables Package C8 deep sleep state on the Intel Haswell iGPU, eliminating the LCPLL clock assertion warning.
-* Executes thermal and BMS tuning automatically.
+### 7. `scripts/apply_system_fixes.sh` (Kernel PCI Runtime Power & Intel Haswell i915 Clock Fix)
+* **Problem:** The dGPU (NVIDIA GT 750M) runs at full power consumption (~15W VRAM/GPU idle power) unless PCI runtime PM is enabled. Additionally, the Intel Haswell iGPU (`i915`) attempts Package C8 deep sleep display clock shutdown (`hsw_enable_pc8`), conflicting with Apple GMUX and spewing LCPLL clock assertion warnings in kernel logs.
+* **Why the Fix Works:** Applies kernel GRUB command-line tuners `nouveau.runpm=1` (enabling dynamic dGPU power management so the GT 750M enters D3cold 0W sleep when idle) and `i915.enable_pkg_c8=0` (disabling Haswell Package C8 deep sleep, stopping i915 clock warnings).
+* **Verification Test:** Verified by **AUDIT-05** (`cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status`) and **AUDIT-06** (`cat /proc/cmdline`).
 
 ---
 
