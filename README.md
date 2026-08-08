@@ -119,6 +119,18 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
   2. **Developer Directory Exclusions:** Configures `gsettings` to ignore build/dependency trees (`node_modules`, `build`, `target`, `.venv`, `venv`, `dist`, `.cache`, `__pycache__`) and adds extraction throttle delays (`throttle 10`).
 * **Result:** Tracker background indexing drops CPU usage from **94% to ~6%**, keeping the laptop cool (75°C–82°C) while maintaining background search functionality.
 
+#### ⚡ Technical Deep-Dive: Why Unthrottled File Indexing Causes Thermal Spikes & How Cgroups/Nice Limits Fix It
+
+1. **Root Cause of Post-Boot Thermal Spikes:**
+   When Ubuntu starts, GNOME Tracker 3 launches `tracker-miner-fs-3` to crawl file system changes. When traversing developer workspaces containing tens of thousands of deeply nested build artifacts (e.g. `node_modules`, `.venv`, Rust `target/`, C++ `build/`), the process issues millions of rapid `stat()` and `read()` syscalls.
+2. **Amplification via Unlocked Turbo Boost:**
+   Because `disable-bdprochot.service` un-throttles the Intel Core i7-4870HQ CPU from 800 MHz back to its high-performance state, the Linux kernel CPU scaling governor (`schedutil` / `intel_cpufreq`) detects this intense single-threaded I/O load and ramps CPU core frequencies to **3.50–3.70 GHz (Turbo Boost)** across all threads. At 3.7 GHz, Haswell 22nm architecture power consumption jumps from 15W to 47W, causing CPU core temperatures to rapidly spike from 50°C to 95°C+ before fan controls can ramp up.
+3. **Engineering Mechanics of the Fix:**
+   * **`Nice=19` (Unix Process Niceness):** Assigns Tracker the lowest CPU scheduling priority. The Completely Fair Scheduler (CFS) immediately yields CPU cycles to any user application (web browser, IDE, terminal) without introducing desktop latency.
+   * **`CPUQuota=25%` (Cgroup v2 CPU Bandwidth Restriction):** Hard-caps Tracker's total CPU time allocation to 25% of a single core. Even during intense metadata extraction, Tracker is physically prohibited by the Linux kernel from consuming more than 1/4 of a core thread.
+   * **`IOSchedulingClass=idle` (Kernel I/O Scheduler):** Configures Tracker's disk read/write requests to execute only when the storage controller is completely idle.
+   * **`ignored-directories` (Directory Blacklisting):** Excludes developer build artifacts (`node_modules`, `build`, `target`, `.venv`), preventing Tracker from crawling non-user document trees.
+
 ---
 
 ## 🛠️ Automated Scripts & Test Suite Included
