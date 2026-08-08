@@ -109,15 +109,16 @@ All tests executed live on **NVIDIA GeForce GT 750M (NVE7 / GK107M)** under **Ub
 | **TEST 1B** | Vertex Index OOB Fetching | Fetching index 65,500 on 3-vertex VBO | Safe vertex fetch | **PASS** ✅ |
 | **TEST 1C** | Complex Shader Refraction | `glmark2` Bump & Refraction shader pipeline | 119 FPS / 31 FPS | **PASS** ✅ |
 
-### 🔹 Section 2: Patch 2 & 3 (`PTE` Page Fault & Copy Engine Fence Protection)
-* **Corresponding Patches:** `patches/nouveau_scratch_fence_wait.patch` & `patches/nouveau_ce_dma_fence_sync.patch`
+### 🔹 Section 2: Patch 2, 3 & 4 (`PTE` Page Fault, Copy Engine Fence & TIC Bufctx Validation)
+* **Corresponding Patches:** `patches/nouveau_scratch_fence_wait.patch`, `patches/nouveau_ce_dma_fence_sync.patch` & `patches/nouveau_tic_bufctx_refn.patch`
 
 | Test ID | Test Name | Workload / Stress | Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **TEST 2A** | Rapid Scratch Buffer Re-mapping | 500 unsynchronized `glMapBufferRange` cycles during draw | Zero memory corruption | **PASS** ✅ |
 | **TEST 2B** | Geometry & Terrain Stream | High-volume VBO stream (`[buffer]` + `[terrain]`) | 106 FPS / 21 FPS | **PASS** ✅ |
 | **TEST 2C** | Desktop Surface Compositing | GTK4 / Wayland compositor surface blur pass | 46 FPS | **PASS** ✅ |
-| **TEST 2D** | **GNOME Videos (Totem) Playback** | **H.264 video playback (`sample_music_long.mp4`) on Wayland session** | **Smooth playback, ZERO Copy Engine `CE2` page faults** | **PASS** ✅ |
+| **TEST 2D** | Texture Buffer Object (TBO) Re-binding | 200 dynamic `glTexBuffer` VRAM re-allocations & address flushes | TBO bufctx validation & TIC flush safe | **PASS** ✅ |
+| **TEST 2E** | **GNOME Videos (Totem) Playback** | **H.264 video playback on Wayland session** | **Smooth playback, ZERO Copy Engine `CE2` page faults** | **PASS** ✅ |
 
 ### 🔹 Section 3: Dual-GPU Video Acceleration & Thermal Control
 | Test ID | Test Name | Driver / Subsystem | Result | Status |
