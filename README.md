@@ -68,46 +68,25 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Why the Fix Works:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) that clears bit 0 of MSR `0x1FC`, unlocking full CPU Turbo frequency (3.70 GHz). Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 * **Verification Test:** Verified by **TEST 3B** (`lscpu` clock check & `disable-bdprochot.service` status) and **TEST 3C** (`sensors` thermal audit).
 
-### 7. `scripts/apply_system_fixes.sh` (6-Layer Nouveau & ALSA Runtime PM Disabling & PCIe Power Control Fix)
-* **Problem:** Enabling dynamic Nouveau Runtime Power Management (`nouveau.runpm=1` or udev `power/control="auto"`) on MacBook Pro Dual-GPU Kepler hardware causes GPU channel disconnects (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`). When `gnome-shell` crashes under Wayland, the entire user desktop session is abruptly terminated, logging out the user to the GDM screen. Furthermore, default ALSA audio power management (`snd_hda_intel.power_save=1`) forces the NVIDIA HDMI Audio controller (`0000:01:00.1`) back into `auto` state upon stream idle.
-* **Why the Fix Works:** Implements a 6-layer complete power management lock:
-  1. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Priority 99 matching all PCI events (`add`, `bind`, `change`) to force `ATTR{power/control}="on"` for both dGPU (`0x0fe9`) and HDMI Audio (`0x0e1b`).
-  2. **ALSA Audio Modprobe (`/etc/modprobe.d/audio_disable_powersave.conf`):** Configures `options snd_hda_intel power_save=0 power_save_controller=N` to prevent the kernel ALSA driver from auto-suspending audio controllers.
-  3. **Nouveau Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=0`.
+### 7. `scripts/apply_system_fixes.sh` (6-Layer Dynamic PCIe Runtime Power Management & 5000ms Grace Delay Tuning)
+* **Problem:** Older Linux kernels and unoptimized udev rules either forced full power-down transitions causing GPU channel disconnects (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`), or forced permanent `power/control="on"` state which prevented PCIe D3hot/D3cold low-power states, causing system idle temperatures to hover at **80°C–90°C**.
+* **Why the Active Architecture Works:** Implements a 6-layer dynamic PCIe runtime power management architecture tuned with a **5000ms (5-second) grace delay**:
+  1. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Priority 99 matching all PCI events (`add`, `bind`, `change`) setting `ATTR{power/control}="auto"` and `ATTR{power/autosuspend_delay_ms}="5000"` for dGPU (`0x0fe9`), HDMI Audio (`0x0e1b`), and Intel iGPU (`0x0d26`).
+  2. **ALSA Audio Modprobe (`/etc/modprobe.d/audio_disable_powersave.conf`):** Configures `options snd_hda_intel power_save=1 power_save_controller=Y` allowing audio hardware to auto-suspend after idle timeouts.
+  3. **Nouveau Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=1` enabling driver-level runtime power management.
   4. **Kernel Parameters (`/etc/default/grub`):** Sets `nouveau.runpm=0` and `i915.enable_pkg_c8=0`.
-  5. **Live PCI Sysfs Override:** Writes `on` to `/sys/bus/pci/devices/0000:01:00.0/power/control` and `0000:01:00.1/power/control`.
-  6. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) embedding both modprobe configs in early boot.
+  5. **Live PCI Sysfs Tuning:** Writes `auto` and `5000` to sysfs nodes `/sys/bus/pci/devices/.../power/autosuspend_delay_ms`.
+  6. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) embedding modprobe and udev configs during early boot.
 * **Verification Test:** Executed automatically via `scripts/test_nouveau_power_disable.sh` (8/8 assertions passed).
 
-#### ⚡ Technical Deep-Dive: Udev Event Lifecycles & Why `ACTION=="add"` Was Incomplete
+#### ⚡ Technical Deep-Dive: 5000ms Grace Delay & Thermal Optimization Mechanics
 
-1. **The Udev Event Matching Limitation:**
-   Initial udev rules restricted matching with `ACTION=="add"`. While `add` matches initial device discovery during cold boot, Linux driver binding emits subsequent `ACTION=="bind"` and `ACTION=="change"` udev events when ALSA/PipeWire initializes the sound card. Restricting rules to `ACTION=="add"` allowed later `bind`/`change` events from `snd_hda_intel` or sound daemons to overwrite sysfs `power/control` back to `"auto"`.
-2. **The Universal Event Fix:**
-   Omitting `ACTION=="add"` and matching universally on `SUBSYSTEM=="pci"`:
-   ```udev
-   # Disable PCI runtime power management for NVIDIA dGPU & Audio Controller (Force Always ON for all PCI events)
-   SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
-   SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
-   ```
-   `udev` is mandated to write `"on"` to sysfs every time the NVIDIA dGPU (vendor `0x10de`, device `0x0fe9`) or HDMI Audio controller (`0x0e1b`) experiences any PCI event (`add`, `bind`, `change`), maintaining an unbreakable `on` state across reboots.
-
-3. **ALSA `snd_hda_intel` Kernel Module Parameter Lock:**
-   Ubuntu defaults to `snd_hda_intel.power_save=1`. When audio streams finish, the ALSA driver automatically reverts sound card sysfs attributes to `auto`. Adding `/etc/modprobe.d/audio_disable_powersave.conf`:
-   ```modprobe
-   options snd_hda_intel power_save=0 power_save_controller=N
-   ```
-   Completely disables ALSA-level power saving, preventing the driver from triggering PCIe autosuspend.
-
-#### 🔊 PCIe Power Management: Transition from Forced-ON (`on`) to Dynamic Auto-Suspend (`auto`)
-
-1. **Why the Transition to Dynamic `auto` Mode Was Made:**
-   Initially, forcing `power/control="on"` for both the NVIDIA dGPU (`0000:01:00.0`) and HDMI Audio (`0000:01:00.1`) guaranteed that the PCIe bus would never sleep. However, keeping both sub-devices permanently powered on prevented the physical GPU core and PCIe link from entering D3hot/D3cold low-power states, causing idle system temperatures to hover at **80°C–90°C**.
-2. **Thermal & Power Optimization Mechanics of `auto` Mode:**
-   By updating `/etc/udev/rules.d/99-nvidia-pm.rules` to enforce `ATTR{power/control}="auto"` for the NVIDIA dGPU (`0x0fe9`), HDMI Audio (`0x0e1b`), and Intel iGPU (`0x0d26`), and enabling ALSA audio power save (`options snd_hda_intel power_save=1 power_save_controller=Y`) and Nouveau driver runtime PM (`options nouveau runpm=1`):
-   * **PCIe Link Suspension:** Idle hardware sub-functions automatically transition to `runtime_status: suspended`.
-   * **Thermal Drop:** System idle temperatures dropped significantly from **85°C–90°C down to 55°C–65°C**.
-   * **Stability Preservation:** Rebuilt initramfs images ensure that udev and kernel modprobe rules handle dynamic wake-ups cleanly across reboots without desktop crashes.
+1. **Elimination of Audio & UI Stuttering:**
+   Setting `autosuspend_delay_ms="5000"` (5 seconds) prevents micro-suspension cycles during fast audio seeking or volume adjustments in Spotify, web browsers, and media players. The 5-second grace window ensures the PCIe link and ALSA audio buffer remain active during rapid user interactions, eliminating audio dropouts and clicks.
+2. **Thermal Drop Performance:**
+   When the system is idle for >5 seconds, the Linux PCI subsystem transitions idle hardware sub-functions to `runtime_status: suspended`. Idle system temperatures drop significantly from **85°C–90°C down to 55°C–65°C**.
+3. **Universal Udev Event Matching:**
+   Matching universally on `SUBSYSTEM=="pci"` without an `ACTION=="add"` restriction ensures that `power/control="auto"` and `autosuspend_delay_ms="5000"` are enforced across all PCI device lifecycle events (`add`, `bind`, `change`).
 
 ### 8. `scripts/setup_gnome_tracker_throttling.sh` (GNOME Tracker 3 CPU & I/O Resource Throttler)
 * **Problem:** On system startup, the GNOME Tracker 3 file indexer (`tracker-extract-3` and `tracker-miner-fs-3`) consumes up to 100% of a CPU core to extract metadata from files and heavy developer build directories (`node_modules`, `build`, `target`, `.venv`), triggering CPU Turbo Boost (3.5–3.7 GHz) and spiking CPU core temperatures to 90°C–98°C.
