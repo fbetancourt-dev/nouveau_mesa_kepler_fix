@@ -54,11 +54,11 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 ### 5. `tests/test_oob_buffer.c` (Embedded OpenGL C Stability Suite)
 Standalone C OpenGL test suite compiled with GLEW/X11 to perform deterministic out-of-bounds shader writes, vertex index fetching, and high-frequency unsynchronized buffer re-mapping cycles directly within the repository.
 
-### 5. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
+### 6. `scripts/setup_macbook_thermal_and_bms.sh` (Thermal & BMS/Aftermarket 800MHz Bypass)
 * **BD_PROCHOT Bypass:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) clearing bit 0 of MSR `0x1FC`. Bypasses BMS sensor degradation and aftermarket battery capacity reporting mismatches, unlocking the CPU from 800 MHz back to full 3.70 GHz Turbo Boost.
 * **Ultra-Cool Fan Profile:** Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 
-### 6. `scripts/apply_system_fixes.sh` (Kernel & Udev Master Tuner)
+### 7. `scripts/apply_system_fixes.sh` (Kernel & Udev Master Tuner)
 Configures GRUB and Udev rules:
 * `nouveau.runpm=1`: Enables PCI runtime dynamic power management (dGPU powers off when idle).
 * `i915.enable_pkg_c8=0`: Disables Package C8 deep sleep state on the Intel Haswell iGPU, eliminating the LCPLL clock assertion warning.
@@ -72,7 +72,7 @@ Configures GRUB and Udev rules:
 | :--- | :--- |
 | `scripts/apply_system_fixes.sh` | **Master setup:** Applies GRUB parameters, Udev power rules, thermal profiles, BD_PROCHOT CPU fixes, and updates initramfs. |
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
-| `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, and 3, and compiles native DRI drivers via `meson`/`ninja`. |
+| `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, 3, and 4, and compiles native DRI drivers via `meson`/`ninja`. |
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
 | `scripts/audit_system_health.py` | **Automated Health & Audit CLI:** Runs all 9 GPU, kernel, thermal, power PM, and CPU checks and prints a formatted ASCII table. |
 | `tests/test_oob_buffer.c` | Standalone C OpenGL stress test suite for shader robustness and scratch buffer re-mapping. |
