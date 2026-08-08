@@ -1,22 +1,37 @@
 #!/usr/bin/env bash
-# monitor_kepler_stability.sh - Background Stability & GPU Fault Watchdog
+# monitor_kepler_stability.sh - Background Stability & GPU Fault Watchdog Daemon
 # Repository: nouveau_mesa_kepler_fix
 
 set -euo pipefail
 
 LOG_FILE="/home/fbetancourt/Gemini/nouveau_mesa_kepler_fix/stability_monitor.log"
 
-echo "========================================================================" >> "${LOG_FILE}"
-echo "   Nouveau Kepler Background Stability & Diagnostic Watchdog Started" >> "${LOG_FILE}"
-echo "   Timestamp: $(date -Iseconds)" >> "${LOG_FILE}"
-echo "========================================================================" >> "${LOG_FILE}"
+run_check() {
+    local timestamp
+    timestamp=$(date -Iseconds)
+    local fault_count
+    fault_count=$(journalctl -k -b --no-pager | grep -icE "nouveau.*(fault|PTE|OOR_ADDR|trap|errored|killed)" || true)
 
-# Initial Health Audit
-FAULT_COUNT=$(journalctl -k -b --no-pager | grep -icE "nouveau.*(fault|PTE|OOR_ADDR|trap|errored|killed)" || true)
-echo "[INFO] Live GPU fault count on current boot: ${FAULT_COUNT}" >> "${LOG_FILE}"
+    if [ "${fault_count}" -eq 0 ]; then
+        echo "[${timestamp}] STATUS: Perfect stability. 0 GPU faults registered." >> "${LOG_FILE}"
+    else
+        echo "[${timestamp}] WARNING: Detected ${fault_count} GPU fault entries in kernel log!" >> "${LOG_FILE}"
+        # Append exact fault snippet
+        journalctl -k -b --no-pager | grep -iE "nouveau.*(fault|PTE|OOR_ADDR|trap|errored|killed)" | tail -n 5 >> "${LOG_FILE}" || true
+    fi
+}
 
-if [ "${FAULT_COUNT}" -eq 0 ]; then
-    echo "[STATUS] Perfect stability. 0 GPU faults registered." >> "${LOG_FILE}"
+# If run with --loop or --daemon, loop every 60 seconds
+if [ "${1:-}" = "--loop" ] || [ "${1:-}" = "--daemon" ]; then
+    echo "========================================================================" >> "${LOG_FILE}"
+    echo "   Nouveau Kepler Stability Watchdog Daemon Started" >> "${LOG_FILE}"
+    echo "   Timestamp: $(date -Iseconds)" >> "${LOG_FILE}"
+    echo "========================================================================" >> "${LOG_FILE}"
+    while true; do
+        run_check
+        sleep 60
+    done
 else
-    echo "[WARNING] Initial log check detected ${FAULT_COUNT} GPU fault entries." >> "${LOG_FILE}"
+    # Single-shot run
+    run_check
 fi
