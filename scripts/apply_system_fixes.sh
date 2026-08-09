@@ -42,14 +42,12 @@ echo "[STEP 1b/5] Setting modprobe options nouveau runpm=1 & ALSA audio power_sa
 echo "options nouveau runpm=1" > /etc/modprobe.d/nouveau.conf
 echo "options snd_hda_intel power_save=1 power_save_controller=Y" > /etc/modprobe.d/audio_disable_powersave.conf
 
-# 2. Configure Udev PCI Power Management (NVIDIA auto with 5s delay; Intel iGPU always ON to prevent i915 LCPLL crash)
-echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management..."
+# 2. Configure Udev PCI Power Management (Hybrid Mode: Audio auto with 5s delay; dGPU & Intel iGPU always ON)
+echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management (Hybrid Mode)..."
 cat << 'EOF' > "${UDEV_RULE_FILE}"
-# Enable PCI runtime power management (auto-suspend) with 5000ms grace delay for NVIDIA dGPU & Audio
-SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="auto", ATTR{power/autosuspend_delay_ms}="5000"
+# Hybrid Power Management: NVIDIA Audio auto-suspends after 5s grace delay; dGPU & Intel iGPU always ON for 100% stability
+SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
 SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="auto", ATTR{power/autosuspend_delay_ms}="5000"
-
-# Keep Intel Haswell iGPU always ON to prevent i915 Package C8 LCPLL crash (hsw_disable_lcpll)
 SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x0d26", ATTR{power/control}="on"
 EOF
 rm -f "${UDEV_RULE_FILE}.disabled"
