@@ -23,10 +23,4 @@ export LIBVA_DRIVER_NAME=i965
 export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 export DRI_PRIME=pci-0000_00_02_0
 
-if [[ "$TARGET" =~ ^https?:// ]]; then
-    echo " -> Extracting stream URL via yt-dlp..."
-    STREAM_URL=$(yt-dlp --extractor-args=youtube:player_client=android -f "best[height<=1080]/best" -g "$TARGET" | head -n 1)
-    exec mpv --fs --vo=gpu --hwdec=vaapi "${STREAM_URL}"
-else
-    exec mpv --fs --vo=gpu --hwdec=vaapi "${TARGET}"
-fi
+exec mpv --fs --vo=gpu --hwdec=vaapi --ytdl-format="bestvideo[height<=1080]+bestaudio/best" "${TARGET}"
