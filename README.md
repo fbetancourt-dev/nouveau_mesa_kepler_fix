@@ -175,7 +175,7 @@ AUDIT-09   | BMS Throttle       | BD_PROCHOT 800MHz Throttle Bypass    | PASS   
 | **Static CPU Powersave Governor** | `powersave` capped governor | **`DEPRECATED`** ❌ | Artificially limited CPU clock speeds, making desktop and browser execution feel sluggish. |
 | **Thermal Fan Management** | `mbpfan` (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`) | **`ACTIVE`** ✅ | Spool fans up early to aggressively dissipate heat under load, maintaining safe temperatures (**58°C–69°C**). |
 | **GNOME Tracker 3 Indexer** | Systemd user cgroup quotas (`Nice=19`, `CPUQuota=25%`, `IOSchedulingClass=idle`) | **`ACTIVE`** ✅ | Prevents background indexing from spiking CPU usage to 100% and temperatures to 95°C+ on startup. |
-| **Chrome Full-Screen 60FPS** | `--ozone-platform=x11 --enable-gpu-rasterization --enable-zero-copy` | **`ACTIVE`** ✅ | Bypasses GNOME Wayland Direct Scanout stalls on Nouveau, locking full-screen video to 60 FPS without frame drops. |
+| **Chrome Intel iGPU Full-Screen 60FPS** | `DRI_PRIME=pci-0000_00_02_0` + `--render-node-override=/dev/dri/by-path/pci-0000:00:02.0-render` | **`ACTIVE`** ✅ | Routes 100% of Chrome window rendering, full-screen presentation, and VA-API hardware video decoding directly to Intel Iris Pro 5200 iGPU (`renderD129`), achieving silky smooth 60 FPS in full screen without Nouveau VRAM overhead. |
 
 ---
 
