@@ -47,11 +47,31 @@ echo "[STEP 2/5] Configuring Udev PCI Runtime Power Management (Always-ON for 10
 cat << 'EOF' > "${UDEV_RULE_FILE}"
 # Disable PCI runtime power management (Always ON) for NVIDIA dGPU, Audio Controller & Intel iGPU
 # Prevents Nouveau DisplayPort link training failures (nv50_sor_dp_watermark_sst), VRAM PTE faults, and GNOME Shell crashes
-SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
-SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
-SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x0d26", ATTR{power/control}="on"
+ACTION=="add|change", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0fe9", ATTR{power/control}="on"
+ACTION=="add|change", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x0e1b", ATTR{power/control}="on"
+ACTION=="add|change", SUBSYSTEM=="pci", ATTR{vendor}=="0x8086", ATTR{device}=="0x0d26", ATTR{power/control}="on"
+KERNEL=="0000:01:00.0", ATTR{power/control}="on"
+KERNEL=="0000:01:00.1", ATTR{power/control}="on"
+KERNEL=="0000:00:02.0", ATTR{power/control}="on"
 EOF
 rm -f "${UDEV_RULE_FILE}.disabled"
+
+# 2b. Systemd Persistent PCI Power Lock Service
+cat << 'EOF' > /etc/systemd/system/pci-power-always-on.service
+[Unit]
+Description=Lock PCI Power Control to Always-ON for NVIDIA dGPU, Audio, and Intel iGPU
+After=multi-user.target sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "echo on > /sys/bus/pci/devices/0000:01:00.0/power/control && echo on > /sys/bus/pci/devices/0000:01:00.1/power/control && echo on > /sys/bus/pci/devices/0000:00:02.0/power/control"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now pci-power-always-on.service
 echo " -> Udev rule written to ${UDEV_RULE_FILE}"
 
 # Apply live sysfs override immediately
