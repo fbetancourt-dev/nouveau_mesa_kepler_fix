@@ -68,23 +68,23 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Why the Fix Works:** Installs `msr-tools` and creates a persistent boot service (`disable-bdprochot.service`) that clears bit 0 of MSR `0x1FC`, unlocking full CPU Turbo frequency (3.70 GHz). Configures `mbpfan` with aggressive low-temperature thresholds (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`), keeping the laptop cool and preventing thermal throttling.
 * **Verification Test:** Verified by **TEST 3B** (`lscpu` clock check & `disable-bdprochot.service` status) and **TEST 3C** (`sensors` thermal audit).
 
-### 7. `scripts/apply_system_fixes.sh` (6-Layer Always-ON PCIe Power Management Architecture)
-* **Problem:** Dynamic PCIe runtime power management on NVIDIA Audio (`0000:01:00.1`) causes DisplayPort Link Training failures in the Nouveau driver (`nouveau_dp_train` / `nv50_sor_dp_watermark_sst ret:-6`), triggering kernel warnings and crashing `gnome-shell`. Similarly, auto-suspend on dGPU (`0000:01:00.0`) triggers VRAM PTE page faults in Chromium/Spotify, and iGPU auto-suspend (`0000:00:02.0`) triggers `i915` Haswell Package C8 `hsw_disable_lcpll` crashes.
-* **Why the Active Architecture Works:** Implements a 6-layer Always-ON PCIe power management lock:
-  1. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Priority 99 matching all PCI events (`add`, `bind`, `change`) enforcing `ATTR{power/control}="on"` across NVIDIA dGPU (`0x0fe9`), HDMI Audio (`0x0e1b`), and Intel iGPU (`0x0d26`).
-  2. **ALSA Audio Modprobe (`/etc/modprobe.d/audio_disable_powersave.conf`):** Configures `options snd_hda_intel power_save=1 power_save_controller=Y`.
-  3. **Nouveau Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=1`.
+### 7. `scripts/apply_system_fixes.sh` (6-Layer Complete Nouveau & ALSA Power Management Lock Architecture)
+* **Problem:** Enabling dynamic Nouveau Runtime Power Management (`nouveau.runpm=1` or udev `power/control="auto"`) on Apple MacBook Pro Dual-GPU Kepler hardware causes VRAM page table race conditions (`fifo: fault 00 [READ] ... PTE on channel 6 [gnome-shell]`), DisplayPort Link Training failures (`nouveau_dp_train`), and `i915` Haswell Package C8 `hsw_disable_lcpll` crashes. When these driver faults occur under Wayland, the entire desktop session is abruptly terminated.
+* **Why the Active Architecture Works:** Implements a 6-layer complete power management lock:
+  1. **Nouveau Modprobe (`/etc/modprobe.d/nouveau.conf`):** Sets `options nouveau runpm=0` to completely disable driver-level runtime VRAM page table unmapping.
+  2. **ALSA Audio Modprobe (`/etc/modprobe.d/audio_disable_powersave.conf`):** Configures `options snd_hda_intel power_save=0 power_save_controller=N` to prevent kernel ALSA audio auto-suspend.
+  3. **Udev Rules (`/etc/udev/rules.d/99-nvidia-pm.rules`):** Priority 99 matching all PCI events (`add`, `bind`, `change`) enforcing `ATTR{power/control}="on"` across NVIDIA dGPU (`0x0fe9`), HDMI Audio (`0x0e1b`), and Intel iGPU (`0x0d26`).
   4. **Kernel Parameters (`/etc/default/grub`):** Sets `nouveau.runpm=0` and `i915.enable_pkg_c8=0`.
   5. **Live PCI Sysfs Lock:** Writes `on` to sysfs nodes `/sys/bus/pci/devices/.../power/control`.
   6. **Initramfs Update:** Rebuilds initrd images (`update-initramfs -u`) embedding modprobe and udev configs during early boot.
 * **Verification Test:** Executed automatically via `scripts/test_nouveau_power_disable.sh` (8/8 assertions passed).
 
-#### ⚡ Technical Deep-Dive: DisplayPort Link Training & Always-ON Stability
+#### ⚡ Technical Deep-Dive: Complete Power Lock & Thermal Optimization
 
-1. **DisplayPort Link Training Fix:**
-   On Apple MacBook Pro Dual-GPU hardware, the NVIDIA HDMI Audio sub-function shares DisplayPort link clock circuitry (`SOR`) with the main dGPU. Locking Audio and dGPU to `power/control="on"` ensures DisplayPort link retraining (`nouveau_dp_train`) never fails, eliminating `gnome-shell` crashes.
-2. **Graphics Stability & Low Thermals:**
-   Locking all 3 PCI devices to `power/control="on"` maintains continuous VRAM page table integrity and display engine synchronization across Chrome, Spotify, Totem, and Wayland desktop, while `mbpfan` keeps idle thermals cool (**58°C–65°C**).
+1. **Unbreakable Desktop & Application Stability:**
+   Disabling `runpm=0` and locking `power/control="on"` maintains continuous VRAM page table integrity and DisplayPort clock synchronization across Apple GMUX hardware. This completely eliminates FIFO channel faults, PTE page errors, and `i915` LCPLL crashes across Spotify, Chrome, Totem, and Wayland.
+2. **Thermal Management via `mbpfan`:**
+   Because `mbpfan` ultra-cool profile is active (`max_temp=68°C`), system thermals remain low and well-controlled at **58°C–65°C** even with complete Always-ON power management.
 
 ### 8. `scripts/setup_gnome_tracker_throttling.sh` (GNOME Tracker 3 CPU & I/O Resource Throttler)
 * **Problem:** On system startup, the GNOME Tracker 3 file indexer (`tracker-extract-3` and `tracker-miner-fs-3`) consumes up to 100% of a CPU core to extract metadata from files and heavy developer build directories (`node_modules`, `build`, `target`, `.venv`), triggering CPU Turbo Boost (3.5–3.7 GHz) and spiking CPU core temperatures to 90°C–98°C.
