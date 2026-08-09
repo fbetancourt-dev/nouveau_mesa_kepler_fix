@@ -28,32 +28,32 @@ assert_test() {
 
 # TEST 1: Live Sysfs GPU Power Control
 TEST1_VAL=$(cat /sys/bus/pci/devices/0000:01:00.0/power/control 2>/dev/null || echo "missing")
-if [ "$TEST1_VAL" = "auto" ] || [ "$TEST1_VAL" = "on" ]; then
+if [ "$TEST1_VAL" = "on" ]; then
     assert_test "TEST 1: Live dGPU Sysfs Power Control" 0 "GPU 0000:01:00.0 power/control is '${TEST1_VAL}'"
 else
-    assert_test "TEST 1: Live dGPU Sysfs Power Control" 1 "GPU 0000:01:00.0 power/control is '${TEST1_VAL}'"
+    assert_test "TEST 1: Live dGPU Sysfs Power Control" 1 "GPU 0000:01:00.0 power/control is '${TEST1_VAL}' (expected 'on')"
 fi
 
 # TEST 2: Live Sysfs Audio Controller Power Control
 TEST2_VAL=$(cat /sys/bus/pci/devices/0000:01:00.1/power/control 2>/dev/null || echo "missing")
-if [ "$TEST2_VAL" = "auto" ] || [ "$TEST2_VAL" = "on" ]; then
+if [ "$TEST2_VAL" = "on" ]; then
     assert_test "TEST 2: Live Audio Controller Sysfs Power Control" 0 "Audio 0000:01:00.1 power/control is '${TEST2_VAL}'"
 else
-    assert_test "TEST 2: Live Audio Controller Sysfs Power Control" 1 "Audio 0000:01:00.1 power/control is '${TEST2_VAL}'"
+    assert_test "TEST 2: Live Audio Controller Sysfs Power Control" 1 "Audio 0000:01:00.1 power/control is '${TEST2_VAL}' (expected 'on')"
 fi
 
 # TEST 3: Udev Rules Configuration
-if grep -q 'ATTR{power/control}="auto"' /etc/udev/rules.d/99-nvidia-pm.rules 2>/dev/null; then
-    assert_test "TEST 3: Udev Rules Assertion" 0 "/etc/udev/rules.d/99-nvidia-pm.rules sets ATTR{power/control}='auto'"
+if grep -q 'ATTR{power/control}="on"' /etc/udev/rules.d/99-nvidia-pm.rules 2>/dev/null; then
+    assert_test "TEST 3: Udev Rules Assertion" 0 "/etc/udev/rules.d/99-nvidia-pm.rules sets ATTR{power/control}='on'"
 else
-    assert_test "TEST 3: Udev Rules Assertion" 1 "Udev rules file missing or does not set power/control='auto'"
+    assert_test "TEST 3: Udev Rules Assertion" 1 "Udev rules file missing or does not set power/control='on'"
 fi
 
 # TEST 4: Modprobe Nouveau Configuration
-if grep -q 'options nouveau runpm=1' /etc/modprobe.d/nouveau.conf 2>/dev/null; then
-    assert_test "TEST 4: Modprobe Nouveau Config" 0 "/etc/modprobe.d/nouveau.conf contains 'options nouveau runpm=1'"
+if grep -q 'options nouveau runpm=0' /etc/modprobe.d/nouveau.conf 2>/dev/null; then
+    assert_test "TEST 4: Modprobe Nouveau Config" 0 "/etc/modprobe.d/nouveau.conf contains 'options nouveau runpm=0'"
 else
-    assert_test "TEST 4: Modprobe Nouveau Config" 1 "Modprobe config missing or does not set runpm=1"
+    assert_test "TEST 4: Modprobe Nouveau Config" 1 "Modprobe config missing or does not set runpm=0"
 fi
 
 # TEST 5: GRUB Default Kernel Parameters
@@ -78,12 +78,12 @@ else
     assert_test "TEST 7: Udev Trigger Dry-Run Evaluation" 1 "Udev dry-run output did not resolve to 'on'"
 fi
 
-# TEST 8: ALSA HDA Intel Audio Power Save Enabled
-TEST8_VAL=$(cat /sys/module/snd_hda_intel/parameters/power_save 2>/dev/null || echo "1")
-if [ "$TEST8_VAL" = "1" ]; then
-    assert_test "TEST 8: ALSA Audio Power Save Assertion" 0 "snd_hda_intel.power_save is 1 (enabled for auto-suspend)"
+# TEST 8: ALSA HDA Intel Audio Power Save Assertion
+TEST8_VAL=$(cat /sys/module/snd_hda_intel/parameters/power_save 2>/dev/null || echo "0")
+if [ "$TEST8_VAL" = "0" ]; then
+    assert_test "TEST 8: ALSA Audio Power Save Assertion" 0 "snd_hda_intel.power_save is 0 (disabled for Always-ON stability)"
 else
-    assert_test "TEST 8: ALSA Audio Power Save Assertion" 1 "snd_hda_intel.power_save is '${TEST8_VAL}' (expected 1)"
+    assert_test "TEST 8: ALSA Audio Power Save Assertion" 1 "snd_hda_intel.power_save is '${TEST8_VAL}' (expected 0)"
 fi
 
 echo "========================================================================"
