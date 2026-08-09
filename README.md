@@ -120,6 +120,11 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
   2. **Turbo Boost:** Enables Intel P-State Turbo Boost (`no_turbo=0`), unlocking instant 3.50–3.70 GHz burst performance on demand.
 * **Benefits:** Eliminates lag in desktop applications and IDEs while maintaining dynamic thermal scaling (55°C–65°C idle, 75°C–85°C active load).
 
+### 11. `scripts/fix_chrome_cross_gpu_crash.sh` (Chromium Cross-GPU DMABUF Zero-Copy Wayland Fix)
+* **Problem:** When running Google Chrome under Wayland with `--enable-zero-copy` and `--render-node-override` (decoding video via Intel Iris Pro VA-API while GNOME Shell renders on NVIDIA GT 750M via Nouveau), opening or switching YouTube videos destroys the Intel VA-API surface (`vaExportSurfaceHandle failed, VA error: invalid VASurfaceID`). The Nouveau driver on the NVIDIA dGPU attempts to sample from the freed cross-device DMABUF VRAM address, tripping a kernel page table fault (`fifo: fault 00 [READ] ... reason 02 [PTE] on channel 6/7 [gnome-shell]`), killing the display channel and crashing the entire Wayland desktop session.
+* **Why the Fix Works:** Replaces `--enable-zero-copy` with `--disable-gpu-memory-buffer-video-frames` in `~/.local/share/applications/google-chrome.desktop`. Tells Chromium to maintain a safe internal GL buffer copy during video surface transitions rather than sharing raw cross-GPU DMABUF handles. Keeps hardware VA-API video decoding 100% active on the Intel iGPU (0–5% CPU load) while completely eliminating Nouveau `PTE` page faults during YouTube video transitions.
+* **Verification Test:** Verified by switching YouTube videos rapidly in Chrome without session restarts.
+
 ---
 
 ## 🛠️ Automated Scripts & Test Suite Included
@@ -136,6 +141,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
 | `scripts/manage_drivers.sh` | Provides dual-driver switching, health checks, and boot protection. |
 | `scripts/play_video_mpv_intel.sh` | **Intel MPV Launcher:** Routes MPV video playback and YouTube streaming 100% to Intel Iris Pro 5200 iGPU via VA-API hardware H.264 engine (`LIBVA_DRIVER_NAME=i965`), preventing Nouveau VRAM PTE channel 6 faults. |
+| `scripts/fix_chrome_cross_gpu_crash.sh` | **Chrome Cross-GPU Fix:** Replaces `--enable-zero-copy` with `--disable-gpu-memory-buffer-video-frames` to prevent Nouveau PTE page faults during YouTube video transitions. |
 
 ### 📺 Sample Terminal Audit Report Output (`audit_system_health.py`)
 
