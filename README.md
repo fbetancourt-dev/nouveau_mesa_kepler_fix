@@ -141,7 +141,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
 | `scripts/manage_drivers.sh` | Provides dual-driver switching, health checks, and boot protection. |
 | `scripts/play_video_mpv_intel.sh` | **Intel MPV Launcher:** Routes MPV video playback and YouTube streaming 100% to Intel Iris Pro 5200 iGPU via VA-API hardware H.264 engine (`LIBVA_DRIVER_NAME=i965`), preventing Nouveau VRAM PTE channel 6 faults. |
-| `scripts/fix_chrome_cross_gpu_crash.sh` | **Chrome Cross-GPU Fix:** Replaces `--enable-zero-copy` with `--disable-gpu-memory-buffer-video-frames` to prevent Nouveau PTE page faults during YouTube video transitions. |
+| `scripts/fix_chrome_cross_gpu_crash.sh` | **Chrome Cross-GPU Fix:** Removes `--render-node-override` and `--enable-zero-copy` to prevent cross-render-node EGL buffer mismatches and Nouveau PTE page faults on launch. |
 
 ### 📺 Sample Terminal Audit Report Output (`audit_system_health.py`)
 
@@ -182,8 +182,9 @@ AUDIT-09   | BMS Throttle       | BD_PROCHOT 800MHz Throttle Bypass    | PASS   
 | **Static CPU Powersave Governor** | `powersave` capped governor | **`DEPRECATED`** ❌ | Artificially limited CPU clock speeds, making desktop and browser execution feel sluggish. |
 | **Thermal Fan Management** | `mbpfan` (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`) | **`ACTIVE`** ✅ | Spool fans up early to aggressively dissipate heat under load, maintaining safe temperatures (**58°C–69°C**). |
 | **GNOME Tracker 3 Indexer** | Systemd user cgroup quotas (`Nice=19`, `CPUQuota=25%`, `IOSchedulingClass=idle`) | **`ACTIVE`** ✅ | Prevents background indexing from spiking CPU usage to 100% and temperatures to 95°C+ on startup. |
-| **Chrome Intel VA-API H.264 60FPS** | `LIBVA_DRIVER_NAME=i965 DRI_PRIME=pci-0000_00_02_0` + `--disable-features=Av1Decoder,Vp9Decoder` | **`ACTIVE`** ✅ | Routes 100% of Chrome rendering and video decoding to Intel Iris Pro 5200 iGPU (`renderD129`) via VA-API hardware H.264 engine. Disables software AV1/VP9 decoding, locking full-screen 1080p60 video to 60 FPS at ~3% CPU load. |
-| **MPV Intel VA-API Launcher** | `scripts/play_video_mpv_intel.sh` (`LIBVA_DRIVER_NAME=i965 mpv --vo=gpu --hwdec=vaapi`) | **`ACTIVE`** ✅ | Bypasses Nouveau dGPU VRAM allocation, forcing MPV to decode and present videos directly on Intel iGPU (`renderD129`), eliminating channel 6 PTE faults (`0x122e0000`) and preventing Wayland drops to GDM login screen. |
+| **Chrome Forced Cross-GPU Render Override** | `env LIBVA_DRIVER_NAME=i965 --render-node-override=/dev/dri/renderD128` | **`DEPRECATED`** ❌ | Forcing Chrome's EGL window context onto Intel iGPU (`renderD128`) while GNOME Shell runs on NVIDIA (`renderD129`) causes cross-device EGL buffer swap mismatches (`wl_surface.attach` / `eglSwapBuffers`), tripping kernel `PTE` page faults in `nouveau` (`reason 02 [PTE] on channel 7/8 gnome-shell`) and crashing Wayland on window creation. |
+| **Chrome Native GPU Acceleration** | `scripts/fix_chrome_cross_gpu_crash.sh` (`--enable-gpu-rasterization --ignore-gpu-blocklist`) | **`ACTIVE`** ✅ | Keeps Chrome's EGL window context on the primary session display GPU, eliminating cross-render-node EGL buffer swap mismatches and Nouveau PTE page faults on window/tab creation. |
+| **MPV Intel VA-API Launcher** | `scripts/play_video_mpv_intel.sh` (`LIBVA_DRIVER_NAME=i965 mpv --vo=gpu --hwdec=vaapi`) | **`ACTIVE`** ✅ | Bypasses Nouveau dGPU VRAM allocation, forcing MPV to decode and present videos directly on Intel iGPU (`renderD128`), eliminating channel 6 PTE faults (`0x122e0000`) and preventing Wayland drops to GDM login screen. |
 
 ---
 
