@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fix Chromium/Chrome Cross-GPU DMABUF Zero-Copy Wayland Crash on Nouveau
+# Fix Chromium/Chrome Cross-GPU EGL Render Node Wayland Crash on Nouveau
 set -e
 
 USER_DESKTOP_DIR="$HOME/.local/share/applications"
@@ -14,7 +14,7 @@ Version=1.0
 Name=Google Chrome
 GenericName=Web Browser
 Comment=Access the Internet
-Exec=env LIBVA_DRIVER_NAME=i965 /usr/bin/google-chrome-stable --render-node-override=/dev/dri/by-path/pci-0000:00:02.0-render --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks --disable-gpu-memory-buffer-video-frames %U
+Exec=/usr/bin/google-chrome-stable --enable-gpu-rasterization --ignore-gpu-blocklist %U
 Terminal=false
 Icon=google-chrome
 Type=Application
@@ -25,14 +25,14 @@ Actions=new-window;new-private-window;
 
 [Desktop Action new-window]
 Name=New Window
-Exec=env LIBVA_DRIVER_NAME=i965 /usr/bin/google-chrome-stable --render-node-override=/dev/dri/by-path/pci-0000:00:02.0-render --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks --disable-gpu-memory-buffer-video-frames
+Exec=/usr/bin/google-chrome-stable --enable-gpu-rasterization --ignore-gpu-blocklist
 
 [Desktop Action new-private-window]
 Name=New Incognito Window
-Exec=env LIBVA_DRIVER_NAME=i965 /usr/bin/google-chrome-stable --render-node-override=/dev/dri/by-path/pci-0000:00:02.0-render --enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks --disable-gpu-memory-buffer-video-frames --incognito
+Exec=/usr/bin/google-chrome-stable --enable-gpu-rasterization --ignore-gpu-blocklist --incognito
 EOF
 
 chmod +x "$CHROME_DESKTOP"
 update-desktop-database "$USER_DESKTOP_DIR" 2>/dev/null || true
 
-echo "[SUCCESS] Google Chrome launcher updated with --disable-gpu-memory-buffer-video-frames to prevent Nouveau PTE page faults during video surface transitions."
+echo "[SUCCESS] Google Chrome launcher updated without cross-render-node EGL override to prevent Nouveau PTE page faults during window creation."

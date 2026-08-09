@@ -120,10 +120,10 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
   2. **Turbo Boost:** Enables Intel P-State Turbo Boost (`no_turbo=0`), unlocking instant 3.50–3.70 GHz burst performance on demand.
 * **Benefits:** Eliminates lag in desktop applications and IDEs while maintaining dynamic thermal scaling (55°C–65°C idle, 75°C–85°C active load).
 
-### 11. `scripts/fix_chrome_cross_gpu_crash.sh` (Chromium Cross-GPU DMABUF Zero-Copy Wayland Fix)
-* **Problem:** When running Google Chrome under Wayland with `--enable-zero-copy` and `--render-node-override` (decoding video via Intel Iris Pro VA-API while GNOME Shell renders on NVIDIA GT 750M via Nouveau), opening or switching YouTube videos destroys the Intel VA-API surface (`vaExportSurfaceHandle failed, VA error: invalid VASurfaceID`). The Nouveau driver on the NVIDIA dGPU attempts to sample from the freed cross-device DMABUF VRAM address, tripping a kernel page table fault (`fifo: fault 00 [READ] ... reason 02 [PTE] on channel 6/7 [gnome-shell]`), killing the display channel and crashing the entire Wayland desktop session.
-* **Why the Fix Works:** Replaces `--enable-zero-copy` with `--disable-gpu-memory-buffer-video-frames` in `~/.local/share/applications/google-chrome.desktop`. Tells Chromium to maintain a safe internal GL buffer copy during video surface transitions rather than sharing raw cross-GPU DMABUF handles. Keeps hardware VA-API video decoding 100% active on the Intel iGPU (0–5% CPU load) while completely eliminating Nouveau `PTE` page faults during YouTube video transitions.
-* **Verification Test:** Verified by switching YouTube videos rapidly in Chrome without session restarts.
+### 11. `scripts/fix_chrome_cross_gpu_crash.sh` (Chromium Cross-GPU EGL Render-Node Wayland Fix)
+* **Problem:** Forcing Google Chrome under Wayland to use `--render-node-override=/dev/dri/by-path/pci-0000:00:02.0-render` (Intel Iris Pro iGPU) while GNOME Shell renders on NVIDIA GT 750M (`nouveau` dGPU `/dev/dri/renderD129`) causes Chrome to pass cross-render-node EGL window surfaces during window creation and buffer swaps (`wl_surface.attach` / `eglSwapBuffers`). The Nouveau driver cannot handle cross-render-node EGL surface mapping under Wayland and trips a kernel page table fault (`fifo: fault 00 [READ] ... reason 02 [PTE] on channel 7/8 [gnome-shell]`), killing the display channel and crashing the entire Wayland desktop session upon opening Chrome.
+* **Why the Fix Works:** Removes `--render-node-override` from `~/.local/share/applications/google-chrome.desktop`. Allows Chrome's EGL window context to match the primary session display GPU naturally, eliminating cross-render-node EGL buffer swap mismatches while maintaining full GPU rasterization (`--enable-gpu-rasterization --ignore-gpu-blocklist`).
+* **Verification Test:** Verified by opening multiple Chrome windows and tabs without triggering Nouveau PTE kernel page faults.
 
 ---
 
