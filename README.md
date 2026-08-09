@@ -175,7 +175,7 @@ AUDIT-09   | BMS Throttle       | BD_PROCHOT 800MHz Throttle Bypass    | PASS   
 | **Static CPU Powersave Governor** | `powersave` capped governor | **`DEPRECATED`** ❌ | Artificially limited CPU clock speeds, making desktop and browser execution feel sluggish. |
 | **Thermal Fan Management** | `mbpfan` (`low_temp=48°C`, `high_temp=53°C`, `max_temp=68°C`) | **`ACTIVE`** ✅ | Spool fans up early to aggressively dissipate heat under load, maintaining safe temperatures (**58°C–69°C**). |
 | **GNOME Tracker 3 Indexer** | Systemd user cgroup quotas (`Nice=19`, `CPUQuota=25%`, `IOSchedulingClass=idle`) | **`ACTIVE`** ✅ | Prevents background indexing from spiking CPU usage to 100% and temperatures to 95°C+ on startup. |
-| **Chrome Intel iGPU Full-Screen 60FPS** | `DRI_PRIME=pci-0000_00_02_0` + `--render-node-override=/dev/dri/by-path/pci-0000:00:02.0-render` | **`ACTIVE`** ✅ | Routes 100% of Chrome window rendering, full-screen presentation, and VA-API hardware video decoding directly to Intel Iris Pro 5200 iGPU (`renderD129`), achieving silky smooth 60 FPS in full screen without Nouveau VRAM overhead. |
+| **Chrome Intel VA-API H.264 60FPS** | `LIBVA_DRIVER_NAME=i965 DRI_PRIME=pci-0000_00_02_0` + `--disable-features=Av1Decoder,Vp9Decoder` | **`ACTIVE`** ✅ | Routes 100% of Chrome rendering and video decoding to Intel Iris Pro 5200 iGPU (`renderD129`) via VA-API hardware H.264 engine. Disables software AV1/VP9 decoding, locking full-screen 1080p60 video to 60 FPS at ~3% CPU load. |
 
 ---
 
