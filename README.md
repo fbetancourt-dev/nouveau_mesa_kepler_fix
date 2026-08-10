@@ -11,7 +11,7 @@ A production-ready stability patch suite, thermal tuner, BMS CPU throttle bypass
 
 ## 🛑 Problem Statement
 
-On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200 + NVIDIA GT 750M dGPU), running modern GTK4 applications (such as Nautilus thumbnail generation), Wayland compositors, Discord, or WebGL workloads frequently triggers four critical system and driver failures:
+On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200 + NVIDIA GT 750M dGPU), running modern GTK4 applications (such as Nautilus thumbnail generation), Wayland compositors, Discord, or WebGL workloads frequently triggers five critical system and driver failures:
 
 1. **`OOR_ADDR` Shader Warp Traps:**
    ```text
@@ -68,7 +68,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Why the Fix Works:** Modifies `nvc0_validate_scissor` in `src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c` to dynamically clamp `SCISSOR_HORIZ` max X to `nvc0->framebuffer.width` and `SCISSOR_VERT` max Y to `nvc0->framebuffer.height` when scissor is disabled or active, preventing rasterization beyond valid framebuffer dimensions.
 * **Verification Test:** Live kernel log audit checking for `RT_HEIGHT_OVERRUN` and `PROP` traps.
 
-### 5. `tests/test_oob_buffer.c` (OpenGL C Stability Stress Test Suite & Driver Validation Fix)
+### 6. `tests/test_oob_buffer.c` (OpenGL C Stability Stress Test Suite & Driver Validation Fix)
 * **Problem:** Standard synthetic Linux benchmarks do not target driver-specific race conditions, such as out-of-bounds shader buffer indexing, unsynchronized VBO re-mapping, or dynamic texture buffer address flushes on Kepler GPUs.
 * **Why the Fix Works:** Provides a standalone OpenGL C test suite (`TEST 1` through `TEST 4`) compiled with GLEW/X11. Deterministically executes targeted stress workloads to validate driver patch effectiveness:
   * **TEST 1 & TEST 2 (Validates Patch 1):** Out-of-bounds SSBO compute shader writes (`data[idx + 50000]`) and OOB vertex index fetching (index 65500).
