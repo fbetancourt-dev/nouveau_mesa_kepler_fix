@@ -73,6 +73,9 @@ DRI_PRIME=pci-0000_01_00_0 glmark2 -b desktop:blur-radius=5:effect=blur:duration
 echo "[TEST 2D] Texture Buffer Object (TBO) Re-binding & Address Flush (Patch 4 Verification)..."
 DRI_PRIME=pci-0000_01_00_0 "${OOB_TEST_BIN}" | grep -A 1 "TEST 4" || true
 
+echo "[TEST 2E] Offscreen Render Target Scissor Bounds Clamping (Patch 5 Verification)..."
+DRI_PRIME=pci-0000_01_00_0 "${OOB_TEST_BIN}" | grep -A 1 "TEST 5" || true
+
 
 # ----------------------------------------------------------------------
 # SECTION 3: DUAL-GPU HARDWARE VIDEO DECODING VERIFICATION
@@ -96,10 +99,10 @@ echo "========================================================================"
 echo " 🔹 SECTION 4: LIVE KERNEL JOURNAL DIAGNOSTIC AUDIT"
 echo "========================================================================"
 
-if journalctl -k --since "${START_TIME}" | grep -iE "nouveau.*(fault|PTE|OOR_ADDR|trap|errored|killed)" ; then
+if journalctl -k --since "${START_TIME}" | grep -iE "nouveau.*(fault|PTE|OOR_ADDR|RT_HEIGHT_OVERRUN|PROP|trap|errored|killed)" ; then
     echo "[WARNING] GPU kernel errors detected during test execution!"
 else
-    echo "[SUCCESS] CLEAN: ZERO Nouveau GPU traps (OOR_ADDR) or PTE page faults detected in kernel logs!"
+    echo "[SUCCESS] CLEAN: ZERO Nouveau GPU traps (OOR_ADDR/RT_HEIGHT_OVERRUN) or PTE page faults detected in kernel logs!"
 fi
 
 echo ""

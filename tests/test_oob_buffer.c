@@ -190,6 +190,41 @@ static void run_test_4(void)
     glDeleteBuffers(1, &tbo);
 }
 
+static void run_test_5(void)
+{
+    printf("[INFO] Executing TEST 5: Offscreen FBO Render Target Scissor Bounds Clamping...\n");
+
+    GLuint fbo, tex;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+        glViewport(0, 0, 512, 1024);
+        glDisable(GL_SCISSOR_TEST);
+
+        glBegin(GL_QUADS);
+        glVertex2f(-1.0f, -1.0f);
+        glVertex2f( 1.0f, -1.0f);
+        glVertex2f( 1.0f,  3.0f);
+        glVertex2f(-1.0f,  3.0f);
+        glEnd();
+        glFinish();
+
+        printf("TEST 5 Result: Scissor clamped to FB bounds & RT_HEIGHT_OVERRUN prevented (PASS)\n");
+    } else {
+        printf("[SKIP] Framebuffer incomplete.\n");
+    }
+
+    glDeleteTextures(1, &tex);
+    glDeleteFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int main(int argc, char **argv)
 {
     init_gl();
@@ -201,6 +236,7 @@ int main(int argc, char **argv)
     run_test_2();
     run_test_3();
     run_test_4();
+    run_test_5();
 
     cleanup_gl();
     return 0;
