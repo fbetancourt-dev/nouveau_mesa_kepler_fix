@@ -6,6 +6,7 @@ set -euo pipefail
 REPO_DIR="/home/fbetancourt/Gemini/nouveau_mesa_kepler_fix"
 DRIVERS_DIR="${REPO_DIR}/drivers"
 DRI_SYSTEM_TARGET="/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so"
+GALLIUM_SYSTEM_TARGET="/usr/lib/x86_64-linux-gnu/libgallium-25.2.8-0ubuntu0.24.04.2.so"
 
 PATCH1_BIN="${DRIVERS_DIR}/libdril_dri_patch1_only.so"
 BOTH_BIN="${DRIVERS_DIR}/libdril_dri_both_patches.so"
@@ -19,17 +20,46 @@ deploy_driver() {
         echo "[ERROR] Driver binary not found: $src"
         exit 1
     fi
-    echo "[INFO] Deploying $name to ${DRI_SYSTEM_TARGET}..."
-    echo "$PASSWORD" | sudo -S cp "$src" "${DRI_SYSTEM_TARGET}"
+    echo "[INFO] Deploying $name to ${GALLIUM_SYSTEM_TARGET}..."
+    echo "$PASSWORD" | sudo -S cp "$src" "${GALLIUM_SYSTEM_TARGET}"
+    echo "$PASSWORD" | sudo -S touch /var/lib/nouveau_driver_deployed_at
+    echo "$PASSWORD" | sudo -S bash -c 'echo "0" > /var/lib/nouveau_boot_attempts' 2>/dev/null || true
+    echo "$PASSWORD" | sudo -S bash -c 'echo "5patch" > /var/lib/nouveau_driver_tier' 2>/dev/null || true
+    echo "$PASSWORD" | sudo -S rm -f /var/run/driver_fallback_triggered /tmp/driver_fallback_triggered 2>/dev/null || true
     echo "[SUCCESS] $name deployed successfully!"
+}
+
+restore_default() {
+    echo "[INFO] Restoring official default stock system drivers..."
+    if [ -f "${GALLIUM_SYSTEM_TARGET}.orig_bak" ]; then
+        echo "$PASSWORD" | sudo -S cp "${GALLIUM_SYSTEM_TARGET}.orig_bak" "${GALLIUM_SYSTEM_TARGET}"
+        echo "[SUCCESS] Restored stock libgallium driver."
+    fi
+    if [ -f "${DRI_SYSTEM_TARGET}.orig_bak" ]; then
+        echo "$PASSWORD" | sudo -S cp "${DRI_SYSTEM_TARGET}.orig_bak" "${DRI_SYSTEM_TARGET}"
+        echo "[SUCCESS] Restored stock libdril_dri driver."
+    fi
+    if [ -x "/usr/local/bin/check-nouveau-driver-fallback.sh" ]; then
+        echo "$PASSWORD" | sudo -S /usr/local/bin/check-nouveau-driver-fallback.sh --restore
+    fi
+    echo "$PASSWORD" | sudo -S bash -c 'echo "0" > /var/lib/nouveau_boot_attempts' 2>/dev/null || true
+    echo "$PASSWORD" | sudo -S bash -c 'echo "stock" > /var/lib/nouveau_driver_tier' 2>/dev/null || true
+    echo "$PASSWORD" | sudo -S rm -f /var/run/driver_fallback_triggered /tmp/driver_fallback_triggered 2>/dev/null || true
+    echo "[COMPLETE] Official stock system drivers restored & active."
 }
 
 status() {
     echo "======================================================="
     echo "      Nouveau Driver Manager & Fallback System"
     echo "======================================================="
+    if [ -f "${GALLIUM_SYSTEM_TARGET}" ]; then
+        echo "Active libgallium size: $(stat -c%s "${GALLIUM_SYSTEM_TARGET}" 2>/dev/null) bytes"
+    fi
     if [ -f "${DRI_SYSTEM_TARGET}" ]; then
         ls -la "${DRI_SYSTEM_TARGET}"
+    fi
+    if [ -f "/var/lib/nouveau_driver_tier" ]; then
+        echo "Active Tier Marker: $(cat /var/lib/nouveau_driver_tier 2>/dev/null)"
     fi
     echo "======================================================="
 }
@@ -42,15 +72,14 @@ test_and_fallback() {
     if DRI_PRIME=pci-0000_01_00_0 glmark2 -b shading:duration=1.0 -b texture:duration=1.0 >/dev/null 2>&1; then
         echo "[SUCCESS] 3D benchmark passed with zero issues!"
     else
-        echo "[WARNING] 3D test failed! Executing automatic fallback to Patch 1..."
-        deploy_driver "${PATCH1_BIN}" "Patch 1 Only (OOR_ADDR)"
+        echo "[WARNING] 3D test failed! Executing automatic fallback to stock default drivers..."
+        restore_default
         exit 1
     fi
 
-    # Inspect kernel log for any new PTE faults
     if journalctl -k --since "30 seconds ago" | grep -iE "fault|PTE|errored|killed" >/dev/null 2>&1; then
-        echo "[WARNING] Kernel log detected GPU errors! Executing automatic fallback to Patch 1..."
-        deploy_driver "${PATCH1_BIN}" "Patch 1 Only (OOR_ADDR)"
+        echo "[WARNING] Kernel log detected GPU errors! Executing automatic fallback to stock default drivers..."
+        restore_default
         exit 1
     else
         echo "[SUCCESS] Live health check passed with ZERO kernel errors! Dual-patch driver active."
@@ -58,15 +87,9 @@ test_and_fallback() {
 }
 
 boot_check() {
-    echo "[INFO] Running post-boot nouveau driver health check..."
-    if journalctl -k -b 0 | grep -iE "nouveau.*(fault|PTE|errored|killed)" >/dev/null 2>&1; then
-        echo "[WARNING] Detected GPU driver error in current boot logs! Falling back to Patch 1..."
-        deploy_driver "${PATCH1_BIN}" "Patch 1 Only (OOR_ADDR)"
-        if command -v notify-send &>/dev/null; then
-            notify-send -u critical "Nouveau Driver Fallback" "GPU errors detected during boot. Automatically reverted to safe Patch 1 driver."
-        fi
-    else
-        echo "[SUCCESS] Post-boot health check clean! No nouveau errors found."
+    echo "[INFO] Running post-boot nouveau driver watchdog health check..."
+    if [ -x "/usr/local/bin/check-nouveau-driver-fallback.sh" ]; then
+        echo "$PASSWORD" | sudo -S /usr/local/bin/check-nouveau-driver-fallback.sh
     fi
 }
 
@@ -76,6 +99,9 @@ case "${1:-status}" in
         ;;
     "deploy-patch1")
         deploy_driver "${PATCH1_BIN}" "Patch 1 Only (OOR_ADDR)"
+        ;;
+    "restore-default"|"restore"|"restore-stock")
+        restore_default
         ;;
     "test-and-fallback"|"test")
         test_and_fallback
@@ -87,7 +113,7 @@ case "${1:-status}" in
         status
         ;;
     *)
-        echo "Usage: $0 {deploy-both|deploy-patch1|test|boot-check|status}"
+        echo "Usage: $0 {deploy-both|deploy-patch1|restore-default|restore-stock|test|boot-check|status}"
         exit 1
         ;;
 esac

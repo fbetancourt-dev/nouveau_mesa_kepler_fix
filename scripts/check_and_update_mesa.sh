@@ -102,34 +102,40 @@ if [ "${BUILD_DRIVER}" = true ]; then
     cd "${MESA_SRC_DIR}"
 
     echo "[INFO] Verifying stability patches in Mesa source..."
-    if grep -q "BO_WAIT" src/gallium/drivers/nouveau/nouveau_buffer.c; then
+    if grep -q "nir_lower_robust_access" src/gallium/drivers/nouveau/nvc0/nvc0_program.c 2>/dev/null; then
+        echo "[INFO] Patch 1 (NIR robust access lowering) present."
+    else
+        echo "[INFO] Applying Patch 1 (NIR robust access lowering)..."
+        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nvc0_nir_robustness.patch"
+    fi
+
+    if grep -q "BO_WAIT" src/gallium/drivers/nouveau/nouveau_buffer.c 2>/dev/null; then
         echo "[INFO] Patch 2 (Scratch fence wait) present."
     else
         echo "[INFO] Applying Patch 2 (Scratch fence wait)..."
         patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_scratch_fence_wait.patch"
     fi
 
-    if grep -q "nouveau_ce_dma_fence_sync" src/gallium/drivers/nouveau/nouveau_buffer.c 2>/dev/null || grep -q "flags & NOUVEAU_BO_WR" src/gallium/drivers/nouveau/nouveau_buffer.c; then
+    if grep -q "flags & NOUVEAU_BO_WR" src/gallium/drivers/nouveau/nouveau_buffer.c 2>/dev/null; then
         echo "[INFO] Patch 3 (CE DMA fence sync) present."
     else
         echo "[INFO] Applying Patch 3 (CE DMA fence sync)..."
-        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_ce_dma_fence_sync.patch" || true
+        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_ce_dma_fence_sync.patch"
     fi
 
-    if grep -q "BCTX_REFN(nvc0->bufctx_3d, 3D_TEX(s, i), res, RD);" src/gallium/drivers/nouveau/nvc0/nvc0_tex.c 2>/dev/null && ! grep -q "dirty || need_flush" src/gallium/drivers/nouveau/nvc0/nvc0_tex.c 2>/dev/null; then
+    if grep -q "res && res->bo" src/gallium/drivers/nouveau/nvc0/nvc0_tex.c 2>/dev/null; then
         echo "[INFO] Patch 4 (Unconditional TIC bufctx reference validation) present."
     else
         echo "[INFO] Applying Patch 4 (Unconditional TIC bufctx reference validation)..."
-        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_tic_bufctx_refn.patch" || true
+        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_tic_bufctx_refn.patch"
     fi
 
     if grep -q "MIN2(s->maxy, fb_h)" src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c 2>/dev/null; then
         echo "[INFO] Patch 5 (Hardware Scissor Framebuffer Bounds Clamping) present."
     else
         echo "[INFO] Applying Patch 5 (Hardware Scissor Framebuffer Bounds Clamping)..."
-        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nvc0_prop_rt_height_clamp.patch" || true
+        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nvc0_prop_rt_height_clamp.patch"
     fi
-
 
     echo "[INFO] Configuring build with meson..."
     meson setup "${BUILD_DIR}" "${MESA_SRC_DIR}" \
@@ -144,17 +150,24 @@ if [ "${BUILD_DRIVER}" = true ]; then
     ninja -C "${BUILD_DIR}"
 
     COMPILED_GALLIUM=$(find "${BUILD_DIR}/src/gallium/targets/dri/" -name "libgallium-*.so" | head -n 1)
-    COMPILED_DRI=$(find "${BUILD_DIR}/src/gallium/targets/dri/" -name "libdril_dri.so" | head -n 1)
 
-    if [ -f "${COMPILED_GALLIUM}" ] || [ -f "${COMPILED_DRI}" ]; then
-        SRC_BIN="${COMPILED_GALLIUM:-$COMPILED_DRI}"
+    if [ -f "${COMPILED_GALLIUM}" ]; then
         echo "[INFO] Deploying patched Mesa driver to local repository drivers directory..."
-        cp "${SRC_BIN}" "${DRIVERS_DIR}/libdril_dri_both_patches.so"
+        cp "${COMPILED_GALLIUM}" "${DRIVERS_DIR}/libdril_dri_both_patches.so"
         echo "${CANDIDATE_VER}" > "${VERSION_FILE}"
         echo "[SUCCESS] Verified Kepler patched driver built and saved safely in ${DRIVERS_DIR}!"
-        echo "[NOTE] System shared libraries (/usr/lib/x86_64-linux-gnu/libgallium.so) are kept intact to preserve boot stability."
+        
+        SYSTEM_GALLIUM="/usr/lib/x86_64-linux-gnu/libgallium-25.2.8-0ubuntu0.24.04.2.so"
+        if [ "$(id -u)" -eq 0 ]; then
+            echo "[INFO] Deploying systemwide to ${SYSTEM_GALLIUM}..."
+            cp "${COMPILED_GALLIUM}" "${SYSTEM_GALLIUM}"
+            echo "[SUCCESS] Patched libgallium driver successfully installed systemwide!"
+        else
+            echo "[NOTE] To deploy systemwide to ${SYSTEM_GALLIUM}, run:"
+            echo "sudo cp ${COMPILED_GALLIUM} ${SYSTEM_GALLIUM}"
+        fi
     else
-        echo "[ERROR] Driver binaries not found in build directory."
+        echo "[ERROR] Driver binary not found in build directory."
         exit 1
     fi
 fi
