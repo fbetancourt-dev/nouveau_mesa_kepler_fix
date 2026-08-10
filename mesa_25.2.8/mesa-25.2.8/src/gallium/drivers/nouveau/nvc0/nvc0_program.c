@@ -593,9 +593,6 @@ nvc0_program_translate(struct nvc0_program *prog, uint16_t chipset,
    info->target = chipset;
 
    info->bin.nir = nir_shader_clone(NULL, prog->nir);
-   if (info->bin.nir) {
-      nir_lower_robust_access(info->bin.nir, NULL, NULL);
-   }
 
 #ifndef NDEBUG
    info->target = debug_get_num_option("NV50_PROG_CHIPSET", chipset);

@@ -18,7 +18,6 @@
 
 #include "util/disk_cache.h"
 #include "util/mesa-sha1.h"
-#include "util/os_misc.h"
 
 #include <xf86drm.h>
 #include <fcntl.h>
@@ -2756,8 +2755,6 @@ anv_physical_device_try_create(struct vk_instance *vk_instance,
    result = anv_physical_device_init_uuids(device);
    if (result != VK_SUCCESS)
       goto fail_compiler;
-
-   os_get_page_size(&device->page_size);
 
    anv_physical_device_init_va_ranges(device);
 

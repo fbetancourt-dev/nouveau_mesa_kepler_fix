@@ -150,7 +150,7 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 | `scripts/audit_cpu_silicon_health.py` | **Silicon Health Audit:** Verifies MCE hardware logs, MSR `0x19C` thermal flags, and executes AVX2 SIMD math precision tests. |
 | `cpu-governor-balanced.service` | **Persistent CPU Governor:** Enforces `schedutil` balanced governor and enables Turbo Boost 3.7GHz across all cores on boot. |
 | `scripts/setup_macbook_thermal_and_bms.sh` | Installs `mbpfan` + `msr-tools`, applies low-threshold fan curves, and creates persistent `disable-bdprochot.service`. |
-| `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, 3, and 4, and compiles native DRI drivers via `meson`/`ninja`. |
+| `scripts/check_and_update_mesa.sh` | Checks system vs candidate Mesa versions, applies patches 1, 2, 3, 4, and 5, and compiles native DRI drivers via `meson`/`ninja`. |
 | `scripts/run_kepler_stability_suite.sh` | Sequentially compiles `tests/test_oob_buffer.c` and executes stability tests, followed by a live kernel log diagnostic audit. |
 | `scripts/manage_drivers.sh` | Provides dual-driver switching, health checks, and boot protection. |
 | `scripts/play_video_mpv_intel.sh` | **Intel MPV Launcher:** Routes MPV video playback and YouTube streaming 100% to Intel Iris Pro 5200 iGPU via VA-API hardware H.264 engine (`LIBVA_DRIVER_NAME=i965`), preventing Nouveau VRAM PTE channel 6 faults. |
