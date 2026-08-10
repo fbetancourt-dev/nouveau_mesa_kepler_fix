@@ -332,21 +332,18 @@ Inspect real-time GPU/CPU temperatures and fan RPMs:
 sensors | grep -iE "temp1|TC0P|Left|Right"
 ```
 
-### 11. CPU Frequency & `BD_PROCHOT` Throttle Check
-Verify that the Intel CPU is running at full Turbo frequency and not throttled to 800 MHz:
-```bash
-lscpu | grep "MHz"
-```
+### 12. Hybrid Intel iGPU Video Decoding (VA-API) & NVIDIA dGPU Compositing Setup
+For hybrid dual-GPU systems (Intel Iris Pro 5200 + NVIDIA GT 750M), configure video acceleration (VA-API) to process video streams on Intel while maintaining desktop composition on NVIDIA:
 
----
-
-## 📜 License
-
-Distributed under the MIT License. See `LICENSE` for more information. "MHz"
-```
-
-
-
+* **Mesa VA-API Driver:** Ensure `/etc/environment` specifies `LIBVA_DRIVER_NAME=i965`.
+* **Chrome Flag Config (`~/.config/chrome-flags.conf`):**
+  ```text
+  --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,WaylandWindowDecorations
+  --disable-features=UseChromeOSDirectVideoDecoder,Av1Decoder,Vp9Decoder,ZeroCopyVideoDecoder
+  --ignore-gpu-blocklist
+  --enable-gpu-rasterization
+  ```
+  *(Note: Disabling `ZeroCopyVideoDecoder` prevents Nouveau cross-GPU `dma_buf` page faults when importing Intel VA-API surfaces into Nouveau EGL textures).*
 
 ---
 
