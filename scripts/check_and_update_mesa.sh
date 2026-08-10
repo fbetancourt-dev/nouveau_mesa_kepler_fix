@@ -116,10 +116,10 @@ if [ "${BUILD_DRIVER}" = true ]; then
         patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_ce_dma_fence_sync.patch" || true
     fi
 
-    if grep -q "dirty || need_flush" src/gallium/drivers/nouveau/nvc0/nvc0_tex.c 2>/dev/null; then
-        echo "[INFO] Patch 4 (TIC bufctx reference validation) present."
+    if grep -q "BCTX_REFN(nvc0->bufctx_3d, 3D_TEX(s, i), res, RD);" src/gallium/drivers/nouveau/nvc0/nvc0_tex.c 2>/dev/null && ! grep -q "dirty || need_flush" src/gallium/drivers/nouveau/nvc0/nvc0_tex.c 2>/dev/null; then
+        echo "[INFO] Patch 4 (Unconditional TIC bufctx reference validation) present."
     else
-        echo "[INFO] Applying Patch 4 (TIC bufctx reference validation)..."
+        echo "[INFO] Applying Patch 4 (Unconditional TIC bufctx reference validation)..."
         patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_tic_bufctx_refn.patch" || true
     fi
 
