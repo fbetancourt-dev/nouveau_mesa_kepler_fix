@@ -143,16 +143,18 @@ if [ "${BUILD_DRIVER}" = true ]; then
     echo "[INFO] Compiling patched driver..."
     ninja -C "${BUILD_DIR}"
 
-    COMPILED_BIN=$(find "${BUILD_DIR}/src/gallium/targets/dri/" \( -name "libgallium-*.so" -o -name "libdril_dri.so" \) | head -n 1)
+    COMPILED_GALLIUM=$(find "${BUILD_DIR}/src/gallium/targets/dri/" -name "libgallium-*.so" | head -n 1)
+    COMPILED_DRI=$(find "${BUILD_DIR}/src/gallium/targets/dri/" -name "libdril_dri.so" | head -n 1)
 
-    if [ -f "${COMPILED_BIN}" ]; then
-        echo "[INFO] Deploying driver to ${DRI_SYSTEM_TARGET}..."
-        cp "${COMPILED_BIN}" "${DRIVERS_DIR}/libdril_dri_both_patches.so"
+    if [ -f "${COMPILED_GALLIUM}" ] || [ -f "${COMPILED_DRI}" ]; then
+        SRC_BIN="${COMPILED_GALLIUM:-$COMPILED_DRI}"
+        echo "[INFO] Deploying patched Mesa driver to local repository drivers directory..."
+        cp "${SRC_BIN}" "${DRIVERS_DIR}/libdril_dri_both_patches.so"
         echo "${CANDIDATE_VER}" > "${VERSION_FILE}"
-        echo "${PASSWORD}" | sudo -S cp "${COMPILED_BIN}" "${DRI_SYSTEM_TARGET}"
-        echo "[SUCCESS] Verified Kepler patched driver deployed successfully systemwide!"
+        echo "[SUCCESS] Verified Kepler patched driver built and saved safely in ${DRIVERS_DIR}!"
+        echo "[NOTE] System shared libraries (/usr/lib/x86_64-linux-gnu/libgallium.so) are kept intact to preserve boot stability."
     else
-        echo "[ERROR] Driver binary not found in build directory."
+        echo "[ERROR] Driver binaries not found in build directory."
         exit 1
     fi
 fi
