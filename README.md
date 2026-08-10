@@ -332,7 +332,7 @@ Inspect real-time GPU/CPU temperatures and fan RPMs:
 sensors | grep -iE "temp1|TC0P|Left|Right"
 ```
 
-### 12. Hybrid Intel iGPU Video Decoding (VA-API) & NVIDIA dGPU Compositing Setup
+### 11. Hybrid Intel iGPU Video Decoding (VA-API) & NVIDIA dGPU Compositing Setup
 For hybrid dual-GPU systems (Intel Iris Pro 5200 + NVIDIA GT 750M), configure video acceleration (VA-API) to process video streams on Intel while maintaining desktop composition on NVIDIA:
 
 * **Mesa VA-API Driver:** Ensure `/etc/environment` specifies `LIBVA_DRIVER_NAME=i965`.
