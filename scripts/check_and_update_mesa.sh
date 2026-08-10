@@ -123,6 +123,13 @@ if [ "${BUILD_DRIVER}" = true ]; then
         patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nouveau_tic_bufctx_refn.patch" || true
     fi
 
+    if grep -q "MIN2(s->maxy, fb_h)" src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c 2>/dev/null; then
+        echo "[INFO] Patch 5 (Hardware Scissor Framebuffer Bounds Clamping) present."
+    else
+        echo "[INFO] Applying Patch 5 (Hardware Scissor Framebuffer Bounds Clamping)..."
+        patch -p1 --no-backup-if-mismatch < "${PATCHES_DIR}/nvc0_prop_rt_height_clamp.patch" || true
+    fi
+
 
     echo "[INFO] Configuring build with meson..."
     meson setup "${BUILD_DIR}" "${MESA_SRC_DIR}" \

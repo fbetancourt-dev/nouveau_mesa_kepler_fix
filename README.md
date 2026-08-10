@@ -25,10 +25,18 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
    ```
    *Cause:* CPU thread race conditions during dynamic VBO scratch buffer re-mapping (`glMapBufferRange`) without proper DMA fence synchronization (`BO_WAIT`), causing invalid Page Table Entry (PTE) VRAM reads.
 
-3. **BMS Degradation & Aftermarket Battery Capacity Mismatch 800MHz CPU Throttling (`BD_PROCHOT` Lock):**
+3. **`RT_HEIGHT_OVERRUN` GPC0/PROP Raster Pre-Output Traps:**
+   ```text
+   nouveau 0000:01:00.0: gr: GPC0/PROP trap: 00000020 [RT_HEIGHT_OVERRUN] x = 724, y = 1152, format = 18, storage type = 0
+   nouveau 0000:01:00.0: fifo: SCHED_ERROR 0a [CTXSW_TIMEOUT]
+   nouveau 0000:01:00.0: fifo:000000:0006:0006:[gnome-shell[3180]] errored - disabling channel
+   ```
+   *Cause:* When Wayland compositors (GNOME Shell / Mutter) update offscreen render target surfaces or window crop scissor states, if scissor rectangles are disabled or unclamped (`maxy = 0xffff`), rasterization emits pixels at `y >= fb.height` (e.g. `y = 1152` on a 1152px height framebuffer). The Kepler GPC Pre-Output (PROP) unit flags an out-of-bounds render target write, tripping `RT_HEIGHT_OVERRUN`, timing out the FIFO scheduler (`CTXSW_TIMEOUT`), disabling channel 6, and killing `gnome-shell`.
+
+4. **BMS Degradation & Aftermarket Battery Capacity Mismatch 800MHz CPU Throttling (`BD_PROCHOT` Lock):**
    *Cause:* Bi-Directional Processor Hot (`BD_PROCHOT`) triggers when the Apple Battery Management System (BMS), battery thermal sensor, or a third-party/aftermarket replacement battery reports metrics that mismatch original factory specifications (for instance, an aftermarket battery reporting higher capacity or non-standard charge profiles than the MacBook Pro SMC expects). The SMC misinterprets these capacity/voltage mismatches as a critical thermal or power fault and trips the `BD_PROCHOT` signal, permanently throttling the Intel CPU at `0.80 GHz` (800 MHz).
 
-4. **High Thermal Latency & `i915` Haswell LCPLL Warnings:**
+5. **High Thermal Latency & `i915` Haswell LCPLL Warnings:**
    *Cause:* Default fan control profiles wait until CPU/GPU hit >85°C to spin up. Furthermore, the `i915` iGPU driver attempts Package C8 deep sleep display clock shutdown (`hsw_enable_pc8`), conflicting with Apple GMUX and spewing kernel warnings.
 
 ---
@@ -54,6 +62,11 @@ On dual-GPU MacBook Pro laptops (Mid-2014 A1398 with Haswell Intel Iris Pro 5200
 * **Problem:** When dynamic texture buffer objects (TBOs / `PIPE_BUFFER`) update their physical VRAM addresses via `nvc0_update_tic`, `need_flush` is set to `true`. Previously, if `dirty` was false, both `nvc0_validate_tic` and `nve4_validate_tic` in `src/gallium/drivers/nouveau/nvc0/nvc0_tex.c` skipped calling `BCTX_REFN(nvc0->bufctx_3d, 3D_TEX(s, i), res, RD)`. Omitting `BCTX_REFN` meant `res->bo` was not registered in `bufctx_3d`, so the Nouveau DRM kernel driver did not map the buffer's GPU virtual memory pages in the channel's MMU table. When GNOME Shell / Wayland compositors sampled the texture, the GPU 3D engine (`GPC0/T1_2` / `TEX: 80000041`) attempted to read from unmapped VRAM `0x130c1000`, causing a `reason 02 [PTE]` fault on channel 6 and crashing the GUI session.
 * **Why the Fix Works:** Changes the validation condition to `if (dirty || need_flush)`. Whenever a texture address is updated (`need_flush`), `BCTX_REFN` is guaranteed to be called, registering `res->bo` in `bufctx_3d`. The kernel DRM driver maps the pages into the GPU MMU before command submission, preventing unmapped VRAM page faults.
 * **Verification Test:** Executed by **TEST 2D** (200-cycle dynamic `glTexBuffer` VRAM re-allocations & address flushes) and live kernel diagnostic audit (**SECTION 4**).
+
+### 5. `patches/nvc0_prop_rt_height_clamp.patch` (Hardware Scissor Framebuffer Bounds Clamping)
+* **Problem:** In Gallium Mesa `nvc0`, when scissor testing is disabled (`!nvc0->rast->pipe.scissor`), `nvc0_validate_scissor` pushed `0xffff` (65535) for `SCISSOR_HORIZ` and `SCISSOR_VERT` max coordinates. When GNOME Shell or Mutter rendered primitives extending past the bottom of a render target (e.g. `y = 1152` on a 1152px height framebuffer), the Kepler GPC Pre-Output (PROP) unit detected a fragment output coordinate `y >= RT_HEIGHT`, raising bit 5 of the PROP trap status register (`0x00000020 [RT_HEIGHT_OVERRUN]`) and causing a `CTXSW_TIMEOUT` FIFO channel crash.
+* **Why the Fix Works:** Modifies `nvc0_validate_scissor` in `src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c` to dynamically clamp `SCISSOR_HORIZ` max X to `nvc0->framebuffer.width` and `SCISSOR_VERT` max Y to `nvc0->framebuffer.height` when scissor is disabled or active, preventing rasterization beyond valid framebuffer dimensions.
+* **Verification Test:** Live kernel log audit checking for `RT_HEIGHT_OVERRUN` and `PROP` traps.
 
 ### 5. `tests/test_oob_buffer.c` (OpenGL C Stability Stress Test Suite & Driver Validation Fix)
 * **Problem:** Standard synthetic Linux benchmarks do not target driver-specific race conditions, such as out-of-bounds shader buffer indexing, unsynchronized VBO re-mapping, or dynamic texture buffer address flushes on Kepler GPUs.

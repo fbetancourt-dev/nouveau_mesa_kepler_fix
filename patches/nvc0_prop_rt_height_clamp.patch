@@ -1,0 +1,27 @@
+diff --git a/src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c b/src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c
+index 32250ab..85612ac 100644
+--- a/src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c
++++ b/src/gallium/drivers/nouveau/nvc0/nvc0_state_validate.c
+@@ -326,11 +326,17 @@ nvc0_validate_scissor(struct nvc0_context *nvc0)
+       if (!(nvc0->scissors_dirty & (1 << i)))
+          continue;
+ 
++      uint16_t fb_w = nvc0->framebuffer.width ? nvc0->framebuffer.width : 0xffff;
++      uint16_t fb_h = nvc0->framebuffer.height ? nvc0->framebuffer.height : 0xffff;
++
+       BEGIN_NVC0(push, NVC0_3D(SCISSOR_HORIZ(i)), 2);
+       if (nvc0->rast->pipe.scissor) {
+-         PUSH_DATA(push, (s->maxx << 16) | s->minx);
+-         PUSH_DATA(push, (s->maxy << 16) | s->miny);
++         uint16_t maxx = MIN2(s->maxx, fb_w);
++         uint16_t maxy = MIN2(s->maxy, fb_h);
++         PUSH_DATA(push, (maxx << 16) | s->minx);
++         PUSH_DATA(push, (maxy << 16) | s->miny);
+       } else {
+-         PUSH_DATA(push, (0xffff << 16) | 0);
+-         PUSH_DATA(push, (0xffff << 16) | 0);
++         PUSH_DATA(push, (fb_w << 16) | 0);
++         PUSH_DATA(push, (fb_h << 16) | 0);
+       }
+    }
+    nvc0->scissors_dirty = 0;
