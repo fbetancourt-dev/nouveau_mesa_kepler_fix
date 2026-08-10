@@ -9,7 +9,9 @@ REPO_DIR="/home/fbetancourt/Gemini/nouveau_mesa_kepler_fix"
 SCRIPTS_DIR="${REPO_DIR}/scripts"
 OOB_TEST_SRC="${REPO_DIR}/tests/test_oob_buffer.c"
 OOB_TEST_BIN="${REPO_DIR}/tests/test_oob_buffer"
-DRI_TARGET="/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so"
+DRI_OVERRIDE_DIR="${REPO_DIR}/dri_override"
+
+export LIBGL_DRIVERS_PATH="${DRI_OVERRIDE_DIR}"
 
 echo "========================================================================"
 echo "      Nvidia Kepler (GT 750M) Stability & Patch Verification Suite"
