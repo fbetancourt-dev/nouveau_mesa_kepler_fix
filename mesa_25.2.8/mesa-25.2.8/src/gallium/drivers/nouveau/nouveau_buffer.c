@@ -470,6 +470,8 @@ nouveau_buffer_transfer_map(struct pipe_context *pipe,
     * wait on the whole slab and instead use the logic below to return a
     * reasonable buffer for that case.
     */
+   if (!buf->mm && (usage & PIPE_MAP_WRITE))
+      BO_WAIT(nv->screen, buf->bo, nouveau_screen_transfer_flags(usage), nv->client);
    ret = BO_MAP(nv->screen, buf->bo,
                 buf->mm ? 0 : nouveau_screen_transfer_flags(usage),
                 nv->client);
@@ -638,6 +640,8 @@ nouveau_resource_map_offset(struct nouveau_context *nv,
       if (BO_MAP(nv->screen, res->bo, 0, NULL))
          return NULL;
    } else {
+      if (flags & NOUVEAU_BO_WR)
+         BO_WAIT(nv->screen, res->bo, flags, nv->client);
       if (BO_MAP(nv->screen, res->bo, flags, nv->client))
          return NULL;
    }
@@ -1023,6 +1027,7 @@ nouveau_scratch_next(struct nouveau_context *nv, unsigned size)
    nv->scratch.offset = 0;
    nv->scratch.end = nv->scratch.bo_size;
 
+   BO_WAIT(nv->screen, bo, NOUVEAU_BO_WR, nv->client);
    ret = BO_MAP(nv->screen, bo, NOUVEAU_BO_WR, nv->client);
    if (!ret)
       nv->scratch.map = bo->map;

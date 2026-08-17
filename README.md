@@ -186,7 +186,9 @@ AUDIT-09   | BMS Throttle       | BD_PROCHOT 800MHz Throttle Bypass    | PASS   
 
 | Architecture / Component | Fix Approach | Status | Rationale & Empirical Findings |
 | :--- | :--- | :---: | :--- |
-| **Mesa 25.2.8 4-Patch Suite** | `nvc0_nir_robustness`, `nouveau_scratch_fence_wait`, `nouveau_ce_dma_fence_sync`, `nouveau_tic_bufctx_refn` | **`ACTIVE`** ✅ | Fixes shader bounds traps (`OOR_ADDR`), VBO scratch races, Copy Engine page faults, and TBO bufctx address flushes. |
+| **Mesa Active Stable Tier (2-Patch Safe Driver)** | `nvc0_nir_robustness` (Patch 1) + `nouveau_scratch_fence_wait` (Patch 2) | **`STABLE ACTIVE`** ✅ | Fixes shader bounds traps (`OOR_ADDR`) and VBO scratch CPU/GPU races. Deployed safely into `/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so` via `manage_drivers.sh deploy-both`. |
+| **Systemwide Binary Safety Rule** | Keep stock `libgallium-25.2.8` & `libgbm.so` | **`CRITICAL`** 🔒 | `libgallium.so` and `libgbm.so` MUST ALWAYS remain stock system Mesa binaries. Overwriting systemwide `libgallium` causes `gnome-session-binary` SIGBUS failures and GDM boot loops. |
+| **Patches 3 & 4 (CE Fence & TIC Bufctx)** | `nouveau_ce_dma_fence_sync` & `nouveau_tic_bufctx_refn` | **`EXPERIMENTAL / EVALUATION`** 🧪 | Currently tested in isolated user-space mode (`LIBGL_DRIVERS_PATH`) prior to future systemwide stabilization work. |
 | **Nouveau Driver Power PM** | Modprobe `options nouveau runpm=0` | **`ACTIVE`** ✅ | Disables driver-level VRAM page table unmapping, preventing channel 6 PTE page faults in Wayland/GNOME Shell. |
 | **PCIe Power Control Lock** | Udev `99-nvidia-pm.rules` + `pci-power-always-on.service` (`power/control="on"`) | **`ACTIVE`** ✅ | Enforces Always-ON power mode across dGPU (`01:00.0`), Audio (`01:00.1`), and iGPU (`00:02.0`). |
 | **Dynamic Audio Auto-Suspend** | `power/control="auto"` with 5s delay (`runpm=1`) | **`DEPRECATED`** ❌ | Disabling NVIDIA Audio clock lines broke DisplayPort Link Training (`nouveau_dp_train ret:-6`), causing `gnome-shell` crashes. |
