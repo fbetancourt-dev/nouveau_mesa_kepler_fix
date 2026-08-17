@@ -120,3 +120,19 @@ Investigation revealed 3 structural design flaws causing the watchdog to miss wh
 
 ### Plantilla 2: Despliegue a Nivel de Sistema SOLO tras Pruebas Exitosas
 > "Una vez que confirmes que el driver compilado pasa todas las pruebas aisladas sin errores de kernel, desplégalo a nivel de sistema de forma segura. Recuerda NO sobrescribir la librería libgallium*.so mientras la sesión gráfica de GNOME Shell esté corriendo (detén GDM con sudo systemctl stop gdm o hazlo desde TTY), y asegúrate de que el script de fallback /usr/local/bin/check-nouveau-driver-fallback.sh esté activo."
+
+---
+
+## 8. Final Baseline Decision: Safe 2-Patch Driver Tier (`deploy-both`) & Roadmap (2026-08-17)
+
+### A. Final Stable System Configuration
+Following deep system testing on August 17, 2026:
+1. **Systemwide Binary Safety:** `/usr/lib/x86_64-linux-gnu/libgallium-25.2.8-0ubuntu0.24.04.2.so` and `libgbm.so` MUST ALWAYS remain 100% official stock Mesa system binaries.
+2. **Active Driver Deployment (`deploy-both`):** The safe 2-patch driver (`libdril_dri_both_patches.so`, ~207 MB) is deployed strictly to `/usr/lib/x86_64-linux-gnu/dri/libdril_dri.so` via `manage_drivers.sh deploy-both`.
+   - **Patch 1 (`nvc0_nir_robustness.patch`):** NIR shader bounds clamping (`OOR_ADDR` warp trap protection).
+   - **Patch 2 (`nouveau_scratch_fence_wait.patch`):** `BO_WAIT` DMA fence synchronization before CPU VBO scratch buffer mapping.
+3. **Patch 4 Warning:** Ingesting Patch 4 (`nouveau_tic_bufctx_refn.patch`) into systemwide builds caused GDM / GNOME Shell unrecoverable crashes. It must NOT be deployed systemwide.
+
+### B. Isolated Testing Roadmap for Patches 3 & 4
+Patches 3 (`nouveau_ce_dma_fence_sync.patch`) and 4 (`nouveau_tic_bufctx_refn.patch`) will undergo isolated user-space evaluation (`LIBGL_DRIVERS_PATH`) before any future systemwide stabilization efforts.
+
